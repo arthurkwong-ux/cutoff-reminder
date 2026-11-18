@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Cut-Off Reminder App</title>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script async src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
   :root {
     --lvl1-bg: #ECFDF5; --lvl1-border: #10B981; --lvl1-hdr: #059669; --lvl1-text: #065F46;
@@ -257,7 +257,7 @@
     </div>
 
     <button id="activateBtn" class="big-activate-btn" onclick="activateToastAlerts()">
-      🔔 Click Anywhere to Activate Windows Pop-Up Alerts &amp; Sound
+      🔔 Click Anywhere to Activate Sound &amp; Alerts
     </button>
 
     <div id="inlineCards" class="inline-cards is-empty"></div>
@@ -293,9 +293,13 @@
     const badge = document.getElementById("notifBadge");
     const btn = document.getElementById("activateBtn");
 
-    if (!("Notification" in window)) {
-      badge.textContent = "❌ Alerts Need localhost/https";
-      badge.className = "shield-pill err";
+    if (location.protocol === "file:" || !("Notification" in window)) {
+      badge.textContent = "🔊 Local Mode (Keep window open)";
+      badge.className = "shield-pill warn";
+      if (soundUnlocked) {
+        btn.textContent = "✅ Sound Ready (Keep window visible/snapped in corner)";
+        btn.classList.add("ready");
+      }
       return;
     }
 
@@ -322,7 +326,7 @@
       soundUnlocked = true;
     } catch {}
 
-    if ("Notification" in window && Notification.permission === "default") {
+    if (location.protocol !== "file:" && "Notification" in window && Notification.permission === "default") {
       try { await Notification.requestPermission(); } catch {}
     }
     updateNotifUI();
@@ -330,28 +334,31 @@
 
   function initKeepAwakeEngine() {
     let lockActive = false;
-    if ("locks" in navigator) {
+    if (location.protocol !== "file:" && "locks" in navigator) {
       try {
         navigator.locks.request("cutoff_excel_keep_awake", () => new Promise(() => {}));
         lockActive = true;
       } catch {}
     }
 
-    let workerActive = false;
-    try {
-      const w = new Worker(URL.createObjectURL(new Blob(["setInterval(()=>postMessage(1),1000)"], { type: "application/javascript" })));
-      w.onmessage = () => evaluateAndRender();
-      workerActive = true;
-    } catch {
-      setInterval(evaluateAndRender, 1000);
+    // Reliable 1s timer immediately; upgrades to Web Worker if running on http/https
+    let fallbackTimer = setInterval(evaluateAndRender, 1000);
+    if (location.protocol !== "file:") {
+      try {
+        const w = new Worker(URL.createObjectURL(new Blob(["setInterval(()=>postMessage(1),1000)"], { type: "application/javascript" })));
+        w.onmessage = () => {
+          if (fallbackTimer) { clearInterval(fallbackTimer); fallbackTimer = null; }
+          evaluateAndRender();
+        };
+      } catch {}
     }
 
     const badge = document.getElementById("keepAwakeBadge");
-    if (lockActive && workerActive) {
+    if (lockActive) {
       badge.textContent = "🛡️ Anti-Sleep Active";
       badge.className = "shield-pill";
     } else {
-      badge.textContent = "⚠️ Use localhost/https for Anti-Sleep";
+      badge.textContent = "🕒 Local Timer Active";
       badge.className = "shield-pill warn";
     }
   }
@@ -369,18 +376,16 @@
   function setAcked(id) {
     const map = getAckMap();
     map[id] = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    localStorage.setItem("excel_ack_" + todayKey(), JSON.stringify(map));
+    try { localStorage.setItem("excel_ack_" + todayKey(), JSON.stringify(map)); } catch {}
     lastCardSig = "__force__";
     lastUpcomingSig = "__force__";
     evaluateAndRender();
   }
 
-  // Parses m/d/yyyy hh:mm, m/d/yyyy, yyyy-mm-dd hh:mm, hh:mm, and Excel serial dates
   function parseDateTimeMs(raw, isEnd = false) {
     if (raw === null || raw === undefined || raw === "") return null;
     const now = new Date();
 
-    // 1. Numeric Excel serial date/time
     if (typeof raw === "number") {
       if (raw >= 0 && raw < 1) {
         const totalMins = Math.round(raw * 24 * 60);
@@ -395,7 +400,6 @@
 
     const s = String(raw).trim();
 
-    // 2. m/d/yyyy (or m/d/yy) with optional time
     let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?$/i);
     if (m) {
       const month = parseInt(m[1], 10) - 1;
@@ -410,7 +414,6 @@
       return new Date(year, month, day, hr, min, 0, 0).getTime();
     }
 
-    // 3. yyyy-mm-dd with optional time
     m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?$/i);
     if (m) {
       const year = parseInt(m[1], 10);
@@ -424,7 +427,6 @@
       return new Date(year, month, day, hr, min, 0, 0).getTime();
     }
 
-    // 4. Time-only hh:mm (defaults to today)
     m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
     if (m) {
       let hr = parseInt(m[1], 10);
@@ -453,7 +455,6 @@
       const startMs = parseDateTimeMs(cols[1], false);
       const endMs = parseDateTimeMs(cols[2], true);
 
-      // First Reminder in days (also accepts e.g. "10m" if someone explicitly enters minutes)
       const rawLead = String(cols[3] ?? "0").trim().toLowerCase();
       let leadMs = 0;
       let leadLabel = "0d";
@@ -503,8 +504,10 @@
   }
 
   function clearSchedule() {
-    localStorage.removeItem(SAVED_ROWS_KEY);
-    localStorage.removeItem(SAVED_NAME_KEY);
+    try {
+      localStorage.removeItem(SAVED_ROWS_KEY);
+      localStorage.removeItem(SAVED_NAME_KEY);
+    } catch {}
     reminders = [];
     document.getElementById("fileInput").value = "";
     document.getElementById("fileStatusText").textContent = "No Excel file imported yet.";
@@ -574,5 +577,3 @@
         const g = ctx.createGain();
         osc.type = level === 3 ? "triangle" : "sine";
         osc.frequency.setValueAtTime(f, ctx.currentTime + i * 0.12);
-        g.gain.setValueAtTime(0.08, ctx.currentTime + i * 0.12);
-        g.gain.exponentialRampToValueAtTim
