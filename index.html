@@ -7,9 +7,12 @@
 <script async src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
   :root {
-    --lvl1-bg: #ECFDF5; --lvl1-border: #10B981; --lvl1-hdr: #059669; --lvl1-text: #065F46;
-    --lvl2-bg: #FFFBEB; --lvl2-border: #F59E0B; --lvl2-hdr: #D97706; --lvl2-text: #92400E;
-    --lvl3-bg: #FEF2F2; --lvl3-border: #EF4444; --lvl3-hdr: #DC2626; --lvl3-text: #991B1B;
+    /* Level 1: Green */
+    --lvl1-bg: #ECFDF5; --lvl1-border: #10B981; --lvl1-hdr: #059669; --lvl1-hdr-text: #FFFFFF; --lvl1-text: #065F46;
+    /* Level 2: Bright Yellow */
+    --lvl2-bg: #FEFCE8; --lvl2-border: #EAB308; --lvl2-hdr: #FACC15; --lvl2-hdr-text: #422006; --lvl2-text: #854D0E;
+    /* Level 3: Vibrant Orange */
+    --lvl3-bg: #FFF7ED; --lvl3-border: #F97316; --lvl3-hdr: #EA580C; --lvl3-hdr-text: #FFFFFF; --lvl3-text: #9A3412;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -63,7 +66,7 @@
     border: none;
   }
   .shield-pill.warn { background: #FEF3C7; color: #92400E; cursor: pointer; }
-  .shield-pill.err { background: #FEE2E2; color: #991B1B; cursor: pointer; }
+  .shield-pill.err { background: #FFEDD5; color: #9A3412; cursor: pointer; }
 
   .dropzone {
     border: 2px dashed #60A5FA;
@@ -92,7 +95,7 @@
   .clear-link {
     background: none;
     border: none;
-    color: #DC2626;
+    color: #EA580C;
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
@@ -162,11 +165,11 @@
 
   .lvl-badge { padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; }
   .lvl-1 { background: #D1FAE5; color: #065F46; }
-  .lvl-2 { background: #FEF3C7; color: #92400E; }
-  .lvl-3 { background: #FEE2E2; color: #991B1B; }
+  .lvl-2 { background: #FEF08A; color: #854D0E; }
+  .lvl-3 { background: #FFEDD5; color: #9A3412; }
 
   .st-tag { font-size: 11px; font-weight: 600; color: #475569; }
-  .st-tag.active { color: #DC2626; font-weight: 700; }
+  .st-tag.active { color: #EA580C; font-weight: 700; }
   .st-tag.acked { color: #059669; font-weight: 700; }
 
   .empty-state {
@@ -178,22 +181,36 @@
     color: #64748B;
   }
 
+  /* Green / Yellow / Orange Cards + Buzzing Alarm Animation */
   .reminder-card {
     border-radius: 10px;
     overflow: hidden;
     border: 2px solid;
     box-shadow: 0 6px 18px rgba(0,0,0,0.12);
   }
+  .reminder-card.buzz-alarm {
+    animation: buzzShake 0.42s cubic-bezier(.36,.07,.19,.97) 3;
+  }
+  @keyframes buzzShake {
+    0%, 100% { transform: translateX(0); }
+    15% { transform: translateX(-7px) rotate(-0.6deg); }
+    30% { transform: translateX(7px) rotate(0.6deg); }
+    45% { transform: translateX(-6px) rotate(-0.4deg); }
+    60% { transform: translateX(6px) rotate(0.4deg); }
+    75% { transform: translateX(-3px); }
+    90% { transform: translateX(3px); }
+  }
+
   .card-lvl-1 { background: var(--lvl1-bg); border-color: var(--lvl1-border); }
-  .card-lvl-1 .rc-hdr { background: var(--lvl1-hdr); color: white; }
+  .card-lvl-1 .rc-hdr { background: var(--lvl1-hdr); color: var(--lvl1-hdr-text); }
   .card-lvl-1 .rc-subj { color: var(--lvl1-text); }
 
   .card-lvl-2 { background: var(--lvl2-bg); border-color: var(--lvl2-border); }
-  .card-lvl-2 .rc-hdr { background: var(--lvl2-hdr); color: white; }
+  .card-lvl-2 .rc-hdr { background: var(--lvl2-hdr); color: var(--lvl2-hdr-text); }
   .card-lvl-2 .rc-subj { color: var(--lvl2-text); }
 
   .card-lvl-3 { background: var(--lvl3-bg); border-color: var(--lvl3-border); }
-  .card-lvl-3 .rc-hdr { background: var(--lvl3-hdr); color: white; }
+  .card-lvl-3 .rc-hdr { background: var(--lvl3-hdr); color: var(--lvl3-hdr-text); }
   .card-lvl-3 .rc-subj { color: var(--lvl3-text); }
 
   .rc-hdr {
@@ -206,7 +223,7 @@
     gap: 6px;
   }
   .latest-tag {
-    background: rgba(255, 255, 255, 0.25);
+    background: rgba(0, 0, 0, 0.16);
     padding: 1px 6px;
     border-radius: 4px;
     font-size: 10px;
@@ -341,7 +358,6 @@
       } catch {}
     }
 
-    // Reliable 1s timer immediately; upgrades to Web Worker if running on http/https
     let fallbackTimer = setInterval(evaluateAndRender, 1000);
     if (location.protocol !== "file:") {
       try {
@@ -482,7 +498,7 @@
       parsed.push({
         id, idx, subject: subj, startMs, endMs: actualEndMs,
         leadLabel, firstAlertMs, level, repeatMins,
-        lastPingMs: 0, pingCount: 0
+        lastPingMs: 0, pingCount: 0, justBuzzed: false
       });
     });
 
@@ -561,19 +577,4 @@
 
   const dz = document.getElementById("dropzone");
   dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("dragover"); });
-  dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
-  dz.addEventListener("drop", e => {
-    e.preventDefault();
-    dz.classList.remove("dragover");
-    if (e.dataTransfer.files.length) handleExcelImport(e.dataTransfer.files[0]);
-  });
-
-  function playTone(level) {
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const freqs = level === 3 ? [880, 988, 880] : level === 2 ? [740, 880] : [587, 659];
-      freqs.forEach((f, i) => {
-        const osc = ctx.createOscillator();
-        const g = ctx.createGain();
-        osc.type = level === 3 ? "triangle" : "sine";
-        osc.frequency.setValueAtTime(f, ctx.currentTime + i * 0.12);
+  dz.addEventListene
