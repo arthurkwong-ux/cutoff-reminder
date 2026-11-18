@@ -6,6 +6,11 @@
 <title>Cut-Off Reminder App</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
+  :root {
+    --lvl1-bg: #ECFDF5; --lvl1-border: #10B981; --lvl1-hdr: #059669; --lvl1-text: #065F46;
+    --lvl2-bg: #FFFBEB; --lvl2-border: #F59E0B; --lvl2-hdr: #D97706; --lvl2-text: #92400E;
+    --lvl3-bg: #FEF2F2; --lvl3-border: #EF4444; --lvl3-hdr: #DC2626; --lvl3-text: #991B1B;
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
@@ -37,12 +42,16 @@
     margin-bottom: 16px;
     flex-wrap: wrap;
   }
+  .clock-wrap { display: flex; flex-direction: column; }
   .clock {
     font-size: 24px;
     font-weight: 700;
     color: #0F172A;
     font-variant-numeric: tabular-nums;
+    line-height: 1.1;
   }
+  .clock-date { font-size: 12px; color: #64748B; font-weight: 600; }
+
   .pills-right { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .shield-pill {
     font-size: 11.5px;
@@ -55,22 +64,20 @@
   }
   .shield-pill.warn { background: #FEF3C7; color: #92400E; cursor: pointer; }
   .shield-pill.err { background: #FEE2E2; color: #991B1B; cursor: pointer; }
-  .shield-pill.mode-test { background: #EDE9FE; color: #5B21B6; }
-  .shield-pill.mode-impl { background: #DBEAFE; color: #1E40AF; }
 
   .dropzone {
     border: 2px dashed #60A5FA;
     background: #EFF6FF;
     border-radius: 10px;
-    padding: 16px 14px;
+    padding: 18px 14px;
     text-align: center;
     cursor: pointer;
     transition: all 0.15s;
     margin-bottom: 12px;
   }
   .dropzone:hover, .dropzone.dragover { background: #DBEAFE; border-color: #2563EB; }
-  .drop-title { font-size: 14px; font-weight: 700; color: #1E40AF; margin-bottom: 6px; }
-  .drop-sub { font-size: 11.5px; color: #334155; line-height: 1.5; text-align: left; display: inline-block; }
+  .drop-title { font-size: 14px; font-weight: 700; color: #1E40AF; margin-bottom: 4px; }
+  .drop-sub { font-size: 11.5px; color: #475569; line-height: 1.45; }
 
   .import-meta {
     display: flex;
@@ -111,7 +118,6 @@
     box-shadow: 0 6px 16px rgba(5, 150, 105, 0.25);
   }
 
-  /* Transparent when empty */
   .inline-cards {
     display: flex;
     flex-direction: column;
@@ -154,6 +160,11 @@
   .up-details { font-size: 11.5px; color: #475569; }
   .up-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
 
+  .lvl-badge { padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; }
+  .lvl-1 { background: #D1FAE5; color: #065F46; }
+  .lvl-2 { background: #FEF3C7; color: #92400E; }
+  .lvl-3 { background: #FEE2E2; color: #991B1B; }
+
   .st-tag { font-size: 11px; font-weight: 600; color: #475569; }
   .st-tag.active { color: #DC2626; font-weight: 700; }
   .st-tag.acked { color: #059669; font-weight: 700; }
@@ -167,21 +178,25 @@
     color: #64748B;
   }
 
-  /* Unified Alert Card Style (Amber for Pre-Start First Reminder, Red for Active Event) */
   .reminder-card {
     border-radius: 10px;
     overflow: hidden;
-    border: 2px solid #EF4444;
-    background: #FEF2F2;
+    border: 2px solid;
     box-shadow: 0 6px 18px rgba(0,0,0,0.12);
   }
-  .reminder-card.pre-start {
-    border-color: #F59E0B;
-    background: #FFFBEB;
-  }
+  .card-lvl-1 { background: var(--lvl1-bg); border-color: var(--lvl1-border); }
+  .card-lvl-1 .rc-hdr { background: var(--lvl1-hdr); color: white; }
+  .card-lvl-1 .rc-subj { color: var(--lvl1-text); }
+
+  .card-lvl-2 { background: var(--lvl2-bg); border-color: var(--lvl2-border); }
+  .card-lvl-2 .rc-hdr { background: var(--lvl2-hdr); color: white; }
+  .card-lvl-2 .rc-subj { color: var(--lvl2-text); }
+
+  .card-lvl-3 { background: var(--lvl3-bg); border-color: var(--lvl3-border); }
+  .card-lvl-3 .rc-hdr { background: var(--lvl3-hdr); color: white; }
+  .card-lvl-3 .rc-subj { color: var(--lvl3-text); }
+
   .rc-hdr {
-    background: #DC2626;
-    color: #FFFFFF;
     padding: 8px 12px;
     font-size: 11px;
     font-weight: 700;
@@ -190,19 +205,15 @@
     align-items: center;
     gap: 6px;
   }
-  .reminder-card.pre-start .rc-hdr {
-    background: #D97706;
-  }
   .latest-tag {
     background: rgba(255, 255, 255, 0.25);
     padding: 1px 6px;
     border-radius: 4px;
     font-size: 10px;
   }
-  .rc-body { padding: 12px; font-size: 12.5px; line-height: 1.45; }
-  .rc-subj { font-size: 15px; font-weight: 700; color: #991B1B; margin-bottom: 4px; }
-  .reminder-card.pre-start .rc-subj { color: #92400E; }
-  .rc-meta { color: #374151; font-size: 12px; margin-bottom: 10px; }
+  .rc-body { padding: 11px 12px; font-size: 12.5px; line-height: 1.4; }
+  .rc-subj { font-size: 14.5px; font-weight: 700; margin-bottom: 4px; }
+  .rc-meta { color: #374151; font-size: 12px; margin-bottom: 9px; }
   .btn-ack {
     background: #111827;
     color: #FFFFFF;
@@ -221,9 +232,11 @@
 
   <div class="app-shell">
     <div class="top-row">
-      <div id="liveClock" class="clock">--:--:--</div>
+      <div class="clock-wrap">
+        <div id="liveClock" class="clock">--:--:--</div>
+        <div id="liveDate" class="clock-date">----/--/--</div>
+      </div>
       <div class="pills-right">
-        <span id="modeBadge" class="shield-pill hidden"></span>
         <button id="notifBadge" class="shield-pill warn" onclick="activateToastAlerts()">🔔 Checking Alerts...</button>
         <span id="keepAwakeBadge" class="shield-pill">🛡️ Checking Keep-Awake...</span>
       </div>
@@ -232,10 +245,8 @@
     <div id="dropzone" class="dropzone" onclick="document.getElementById('fileInput').click()">
       <div class="drop-title">📂 Import Excel Schedule (.xlsx / .xls / .csv)</div>
       <div class="drop-sub">
-        <strong>🧪 Test file (name starts with <code>test...</code>):</strong>
-        A: Subject | B: Start (hh:mm) | C: End (hh:mm) | D: 1st Alert (mins) | E: Repeat (mins, 10m if Start≠End) · <em>Nag: every 2m</em><br>
-        <strong>🏢 Implementation file (all other names):</strong>
-        A: Subject | B: Start (m/d/yyyy) | C: End (m/d/yyyy) | D: 1st Alert (days) | E: Time (hh:mm) · <em>Nag: every 30m</em>
+        Click to browse or drag &amp; drop your 6-column Excel file here<br>
+        <strong>A:</strong> Subject &nbsp;|&nbsp; <strong>B:</strong> Start (m/d/yyyy hh:mm) &nbsp;|&nbsp; <strong>C:</strong> End (m/d/yyyy hh:mm) &nbsp;|&nbsp; <strong>D:</strong> 1st Alert (days) &nbsp;|&nbsp; <strong>E:</strong> Level (1–3) &nbsp;|&nbsp; <strong>F:</strong> Repeat (mins, blank=none)
       </div>
       <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleExcelImport(this.files[0])" />
     </div>
@@ -263,14 +274,9 @@
   </div>
 
 <script>
-  const SAVED_ROWS_KEY = "cutoff_v2_rows";
-  const SAVED_NAME_KEY = "cutoff_v2_filename";
-  const SAVED_ACK_KEY  = "cutoff_v2_acks";
-  const SAVED_IMP_KEY  = "cutoff_v2_imported_at";
-
+  const SAVED_ROWS_KEY = "cutoff_excel_only_rows_v2";
+  const SAVED_NAME_KEY = "cutoff_excel_only_filename_v2";
   let reminders = [];
-  let currentMode = "impl"; // "test" or "impl"
-  let importedAtMs = Date.now();
   let lastCardSig = "__init__";
   let lastUpcomingSig = "__init__";
   let soundUnlocked = false;
@@ -350,196 +356,133 @@
     }
   }
 
+  function todayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  }
+
   function getAckMap() {
-    try { return JSON.parse(localStorage.getItem(SAVED_ACK_KEY) || "{}"); }
+    try { return JSON.parse(localStorage.getItem("excel_ack_" + todayKey()) || "{}"); }
     catch { return {}; }
   }
 
-  function setAcked(cycleKey) {
+  function setAcked(id) {
     const map = getAckMap();
-    map[cycleKey] = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    localStorage.setItem(SAVED_ACK_KEY, JSON.stringify(map));
+    map[id] = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    localStorage.setItem("excel_ack_" + todayKey(), JSON.stringify(map));
     lastCardSig = "__force__";
     lastUpcomingSig = "__force__";
     evaluateAndRender();
   }
 
-  // Parse hh:mm (or AM/PM or Excel numeric time fraction) -> { hours, mins }
-  function parseTimeParts(raw, fallbackHours = 9, fallbackMins = 0) {
-    if (raw === null || raw === undefined || String(raw).trim() === "") {
-      return { hours: fallbackHours, mins: fallbackMins };
-    }
-    if (typeof raw === "number" && raw >= 0 && raw < 1) {
-      const total = Math.round(raw * 24 * 60);
-      return { hours: Math.floor(total / 60) % 24, mins: total % 60 };
-    }
-    const s = String(raw).trim().toUpperCase();
-    const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/);
-    if (!m) return null;
-    let h = parseInt(m[1], 10);
-    const min = parseInt(m[2], 10);
-    if (m[4] === "PM" && h < 12) h += 12;
-    if (m[4] === "AM" && h === 12) h = 0;
-    return { hours: h, mins: min };
-  }
+  // Parses m/d/yyyy hh:mm, m/d/yyyy, yyyy-mm-dd hh:mm, hh:mm, and Excel serial dates
+  function parseDateTimeMs(raw, isEnd = false) {
+    if (raw === null || raw === undefined || raw === "") return null;
+    const now = new Date();
 
-  // Parse m/d/yyyy (also supports m/d/yy, yyyy-mm-dd, or Excel serial date) -> Date at 00:00:00 local
-  function parseDateOnly(raw) {
-    if (raw === null || raw === undefined || String(raw).trim() === "") return null;
-    if (typeof raw === "number" && raw > 20000) {
-      const utc = new Date(Math.round((raw - 25569) * 86400 * 1000));
-      return new Date(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate(), 0, 0, 0, 0);
-    }
-    const s = String(raw).trim();
-    // m/d/yyyy or m/d/yy
-    let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-    if (m) {
-      let y = parseInt(m[3], 10);
-      if (y < 100) y += 2000;
-      return new Date(y, parseInt(m[1], 10) - 1, parseInt(m[2], 10), 0, 0, 0, 0);
-    }
-    // yyyy-mm-dd or yyyy/mm/dd
-    m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
-    if (m) {
-      return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10), 0, 0, 0, 0);
-    }
-    return null;
-  }
-
-  function fmtHHMM(ms) {
-    const d = new Date(ms);
-    return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-  }
-
-  function fmtDateShort(ms) {
-    const d = new Date(ms);
-    return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;
-  }
-
-  function buildCyclesForTest(cols, idx, impMs) {
-    const subj = String(cols[0] ?? "").trim();
-    if (!subj || subj.toLowerCase().includes("subject")) return null;
-
-    const st = parseTimeParts(cols[1], null, null);
-    const en = parseTimeParts(cols[2], null, null);
-    if (!st || !en) return null;
-
-    const baseDay = new Date(impMs);
-    const startMs = new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), st.hours, st.mins, 0, 0).getTime();
-    let endMs = new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), en.hours, en.mins, 0, 0).getTime();
-    if (endMs < startMs) endMs = startMs;
-
-    const leadMins = Math.max(0, parseFloat(cols[3]) || 0);
-    const firstAlertMs = startMs - leadMins * 60000;
-
-    // Column E: Repeat Notification interval in mins; if Start != End and blank, defaults to 10 minutes
-    const rawColE = cols[4] !== undefined && cols[4] !== null ? String(cols[4]).trim() : "";
-    const parsedColE = rawColE === "" ? null : parseFloat(rawColE);
-    const multiStepMins = (parsedColE !== null && !isNaN(parsedColE) && parsedColE > 0) ? parsedColE : 10;
-
-    const cycleTimes = [];
-    if (leadMins > 0) cycleTimes.push({ ts: firstAlertMs, isPre: true });
-
-    if (startMs === endMs) {
-      cycleTimes.push({ ts: startMs, isPre: false });
-    } else {
-      for (let t = startMs; t <= endMs; t += multiStepMins * 60000) {
-        cycleTimes.push({ ts: t, isPre: false });
+    // 1. Numeric Excel serial date/time
+    if (typeof raw === "number") {
+      if (raw >= 0 && raw < 1) {
+        const totalMins = Math.round(raw * 24 * 60);
+        return new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(totalMins / 60) % 24, totalMins % 60, 0, 0).getTime();
+      }
+      if (raw > 1) {
+        const utcMs = Math.round((raw - 25569) * 86400 * 1000);
+        const d = new Date(utcMs);
+        return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes(), 0, 0).getTime();
       }
     }
 
-    // Ignore test rows whose entire window already finished >5 mins before import
-    const alreadyStaleBeforeImport = endMs < (impMs - 5 * 60000);
+    const s = String(raw).trim();
 
-    return {
-      id: `test|${idx}|${subj}|${fmtHHMM(startMs)}|${fmtHHMM(endMs)}`,
-      mode: "test",
-      subject: subj,
-      startMs,
-      endMs,
-      nagIntervalMs: 2 * 60000, // 2 minutes if not acknowledged
-      multiLabel: startMs === endMs ? "Single-time · 2m nag" : `Every ${multiStepMins}m · 2m nag`,
-      windowText: `${fmtHHMM(startMs)} – ${fmtHHMM(endMs)}`,
-      cycles: cycleTimes,
-      alreadyStaleBeforeImport,
-      activeCycleTs: null,
-      lastNagMs: 0,
-      pingCount: 0
-    };
-  }
-
-  function buildCyclesForImpl(cols, idx, impMs) {
-    const subj = String(cols[0] ?? "").trim();
-    if (!subj || subj.toLowerCase().includes("subject")) return null;
-
-    const startDate = parseDateOnly(cols[1]);
-    const endDate = parseDateOnly(cols[2]) || startDate;
-    if (!startDate) return null;
-    const actualEndDate = endDate >= startDate ? endDate : startDate;
-
-    const leadDays = Math.max(0, parseInt(cols[3], 10) || 0);
-    // Column E: hh:mm time of day (defaults to 09:00 if left empty)
-    const timeParts = parseTimeParts(cols[4], 9, 0) || { hours: 9, mins: 0 };
-
-    const makeDayTime = (baseDate, offsetDays) => {
-      return new Date(
-        baseDate.getFullYear(),
-        baseDate.getMonth(),
-        baseDate.getDate() + offsetDays,
-        timeParts.hours,
-        timeParts.mins,
-        0,
-        0
-      ).getTime();
-    };
-
-    const cycleTimes = [];
-    if (leadDays > 0) {
-      cycleTimes.push({ ts: makeDayTime(startDate, -leadDays), isPre: true });
+    // 2. m/d/yyyy (or m/d/yy) with optional time
+    let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?$/i);
+    if (m) {
+      const month = parseInt(m[1], 10) - 1;
+      const day = parseInt(m[2], 10);
+      let year = parseInt(m[3], 10);
+      if (year < 100) year += 2000;
+      let hr = m[4] !== undefined ? parseInt(m[4], 10) : (isEnd ? 17 : 9);
+      const min = m[5] !== undefined ? parseInt(m[5], 10) : (isEnd && m[4] === undefined ? 30 : 0);
+      const ampm = m[7] ? m[7].toUpperCase() : "";
+      if (ampm === "PM" && hr < 12) hr += 12;
+      if (ampm === "AM" && hr === 12) hr = 0;
+      return new Date(year, month, day, hr, min, 0, 0).getTime();
     }
 
-    const totalDays = Math.round((actualEndDate - startDate) / 86400000);
-    for (let d = 0; d <= totalDays; d++) {
-      cycleTimes.push({ ts: makeDayTime(startDate, d), isPre: false });
+    // 3. yyyy-mm-dd with optional time
+    m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?$/i);
+    if (m) {
+      const year = parseInt(m[1], 10);
+      const month = parseInt(m[2], 10) - 1;
+      const day = parseInt(m[3], 10);
+      let hr = m[4] !== undefined ? parseInt(m[4], 10) : (isEnd ? 17 : 9);
+      const min = m[5] !== undefined ? parseInt(m[5], 10) : (isEnd && m[4] === undefined ? 30 : 0);
+      const ampm = m[7] ? m[7].toUpperCase() : "";
+      if (ampm === "PM" && hr < 12) hr += 12;
+      if (ampm === "AM" && hr === 12) hr = 0;
+      return new Date(year, month, day, hr, min, 0, 0).getTime();
     }
 
-    const impMidnight = new Date(impMs);
-    impMidnight.setHours(0, 0, 0, 0);
-    const alreadyStaleBeforeImport = actualEndDate.getTime() < impMidnight.getTime();
+    // 4. Time-only hh:mm (defaults to today)
+    m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+    if (m) {
+      let hr = parseInt(m[1], 10);
+      const min = parseInt(m[2], 10);
+      const ampm = m[4] ? m[4].toUpperCase() : "";
+      if (ampm === "PM" && hr < 12) hr += 12;
+      if (ampm === "AM" && hr === 12) hr = 0;
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hr, min, 0, 0).getTime();
+    }
 
-    const startMs = cycleTimes[0].ts;
-    const endMs = cycleTimes[cycleTimes.length - 1].ts;
-    const hhmmStr = `${String(timeParts.hours).padStart(2,"0")}:${String(timeParts.mins).padStart(2,"0")}`;
-
-    return {
-      id: `impl|${idx}|${subj}|${fmtDateShort(startDate.getTime())}|${fmtDateShort(actualEndDate.getTime())}|${hhmmStr}`,
-      mode: "impl",
-      subject: subj,
-      startMs: startDate.getTime(),
-      endMs,
-      nagIntervalMs: 30 * 60000, // 30 minutes if not acknowledged
-      multiLabel: totalDays > 0 ? `Daily at ${hhmmStr} · 30m nag` : `Single-day at ${hhmmStr} · 30m nag`,
-      windowText: `${fmtDateShort(startDate.getTime())} – ${fmtDateShort(actualEndDate.getTime())} @ ${hhmmStr}`,
-      cycles: cycleTimes,
-      alreadyStaleBeforeImport,
-      activeCycleTs: null,
-      lastNagMs: 0,
-      pingCount: 0
-    };
+    return null;
   }
 
-  function loadExcelRows(rawRows, fileName, save = true, customImpMs = null) {
-    const isTest = String(fileName || "").trim().toLowerCase().startsWith("test");
-    currentMode = isTest ? "test" : "impl";
-    importedAtMs = customImpMs || Date.now();
+  function fmtDateTime(ms) {
+    const d = new Date(ms);
+    return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  }
 
+  function loadExcelRows(rawRows, fileName, save = true) {
     const parsed = [];
     rawRows.forEach((cols, idx) => {
-      if (!cols || cols.length < 4) return;
-      const item = isTest
-        ? buildCyclesForTest(cols, idx, importedAtMs)
-        : buildCyclesForImpl(cols, idx, importedAtMs);
-      if (item) parsed.push(item);
+      if (!cols || cols.length < 5) return;
+      const subj = String(cols[0] ?? "").trim();
+      if (!subj || subj.toLowerCase().includes("subject")) return;
+
+      const startMs = parseDateTimeMs(cols[1], false);
+      const endMs = parseDateTimeMs(cols[2], true);
+
+      // First Reminder in days (also accepts e.g. "10m" if someone explicitly enters minutes)
+      const rawLead = String(cols[3] ?? "0").trim().toLowerCase();
+      let leadMs = 0;
+      let leadLabel = "0d";
+      if (rawLead.endsWith("m")) {
+        const mins = Math.max(0, parseFloat(rawLead) || 0);
+        leadMs = mins * 60000;
+        leadLabel = `${mins}m`;
+      } else {
+        const days = Math.max(0, parseFloat(rawLead) || 0);
+        leadMs = days * 86400000;
+        leadLabel = days === 1 ? "1 day" : `${days} days`;
+      }
+
+      const level = Math.min(3, Math.max(1, parseInt(cols[4], 10) || 1));
+
+      const rawRep = cols[5] !== undefined && cols[5] !== null ? String(cols[5]).trim() : "";
+      const repNum = rawRep === "" ? null : parseFloat(rawRep);
+      const repeatMins = (repNum !== null && !isNaN(repNum) && repNum > 0) ? repNum : null;
+
+      if (startMs === null || endMs === null) return;
+      const actualEndMs = endMs >= startMs ? endMs : startMs;
+      const firstAlertMs = startMs - leadMs;
+      const id = `${subj}|${fmtDateTime(startMs)}|${fmtDateTime(actualEndMs)}|${level}|${repeatMins ?? "once"}`;
+
+      parsed.push({
+        id, idx, subject: subj, startMs, endMs: actualEndMs,
+        leadLabel, firstAlertMs, level, repeatMins,
+        lastPingMs: 0, pingCount: 0
+      });
     });
 
     reminders = parsed;
@@ -547,19 +490,7 @@
       try {
         localStorage.setItem(SAVED_ROWS_KEY, JSON.stringify(rawRows));
         localStorage.setItem(SAVED_NAME_KEY, fileName);
-        localStorage.setItem(SAVED_IMP_KEY, String(importedAtMs));
-        localStorage.removeItem(SAVED_ACK_KEY);
       } catch {}
-    }
-
-    const modeBadge = document.getElementById("modeBadge");
-    modeBadge.classList.remove("hidden", "mode-test", "mode-impl");
-    if (isTest) {
-      modeBadge.textContent = "🧪 Test Mode (10m cycle · 2m nag)";
-      modeBadge.classList.add("mode-test");
-    } else {
-      modeBadge.textContent = "🏢 Implementation Mode (Daily · 30m nag)";
-      modeBadge.classList.add("mode-impl");
     }
 
     document.getElementById("fileStatusText").textContent = `✅ Loaded: ${fileName}`;
@@ -574,11 +505,8 @@
   function clearSchedule() {
     localStorage.removeItem(SAVED_ROWS_KEY);
     localStorage.removeItem(SAVED_NAME_KEY);
-    localStorage.removeItem(SAVED_ACK_KEY);
-    localStorage.removeItem(SAVED_IMP_KEY);
     reminders = [];
     document.getElementById("fileInput").value = "";
-    document.getElementById("modeBadge").classList.add("hidden");
     document.getElementById("fileStatusText").textContent = "No Excel file imported yet.";
     document.getElementById("clearBtn").classList.add("hidden");
     document.getElementById("totalLoadedText").textContent = "0 total events in Excel";
@@ -637,216 +565,14 @@
     if (e.dataTransfer.files.length) handleExcelImport(e.dataTransfer.files[0]);
   });
 
-  function playAlertTone(isPre) {
+  function playTone(level) {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const freqs = isPre ? [740, 880] : [880, 988, 880];
+      const freqs = level === 3 ? [880, 988, 880] : level === 2 ? [740, 880] : [587, 659];
       freqs.forEach((f, i) => {
         const osc = ctx.createOscillator();
         const g = ctx.createGain();
-        osc.type = isPre ? "sine" : "triangle";
+        osc.type = level === 3 ? "triangle" : "sine";
         osc.frequency.setValueAtTime(f, ctx.currentTime + i * 0.12);
         g.gain.setValueAtTime(0.08, ctx.currentTime + i * 0.12);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.22);
-        osc.connect(g); g.connect(ctx.destination);
-        osc.start(ctx.currentTime + i * 0.12);
-        osc.stop(ctx.currentTime + i * 0.12 + 0.24);
-      });
-    } catch {}
-  }
-
-  function fireToast(r, isPre) {
-    if ("Notification" in window && Notification.permission === "granted") {
-      try {
-        const tag = isPre ? "⚠️ Upcoming Cut-Off" : "🚨 Cut-Off Active";
-        const nagMin = r.mode === "test" ? 2 : 30;
-        const n = new Notification(`${tag}: ${r.subject}`, {
-          body: `${r.windowText} (Ping #${r.pingCount} · Repeats every ${nagMin}m until Acknowledged). Click to open.`,
-          requireInteraction: true
-        });
-        n.onclick = () => { window.focus(); n.close(); };
-      } catch {}
-    }
-  }
-
-  function evaluateAndRender() {
-    const now = new Date();
-    const nowMs = now.getTime();
-    document.getElementById("liveClock").textContent =
-      now.toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
-
-    const ackMap = getAckMap();
-    const activeCards = [];
-    let shouldChime = false;
-    let chimePreOnly = true;
-
-    reminders.forEach((r, orderIdx) => {
-      if (r.alreadyStaleBeforeImport) return;
-
-      // Find latest cycle that has started (ts <= nowMs)
-      let latestCycle = null;
-      for (const c of r.cycles) {
-        if (c.ts <= nowMs) latestCycle = c;
-      }
-
-      if (!latestCycle) return;
-
-      const cycleKey = `${r.id}@${latestCycle.ts}`;
-      if (ackMap[cycleKey]) return; // Current cycle is acknowledged!
-
-      // New cycle started OR nag interval elapsed without Acknowledge
-      const isNewCycle = (r.activeCycleTs !== latestCycle.ts);
-      const nagDue = (r.lastNagMs === 0) || (nowMs - r.lastNagMs >= r.nagIntervalMs);
-
-      if (isNewCycle || nagDue) {
-        r.activeCycleTs = latestCycle.ts;
-        r.lastNagMs = nowMs + (orderIdx * 0.001);
-        r.pingCount += 1;
-        shouldChime = true;
-        if (!latestCycle.isPre) chimePreOnly = false;
-        fireToast(r, latestCycle.isPre);
-      }
-
-      activeCards.push({ r, cycle: latestCycle, cycleKey });
-    });
-
-    if (shouldChime) playAlertTone(chimePreOnly);
-
-    renderActiveCards(activeCards);
-    renderNextFiveUpcoming(nowMs, ackMap);
-  }
-
-  function renderActiveCards(activeCards) {
-    // Always sort newest notification / latest ping ABOVE all previous ones
-    activeCards.sort((a, b) => (b.r.lastNagMs - a.r.lastNagMs) || (b.cycle.ts - a.cycle.ts));
-
-    const sig = activeCards.map(x => `${x.cycleKey}#${x.r.pingCount}@${x.r.lastNagMs}`).join("||");
-    if (sig === lastCardSig) return;
-    lastCardSig = sig;
-
-    const inlineBox = document.getElementById("inlineCards");
-    if (activeCards.length === 0) {
-      inlineBox.innerHTML = "";
-      inlineBox.className = "inline-cards is-empty";
-      return;
-    }
-
-    inlineBox.className = "inline-cards has-alerts";
-    inlineBox.innerHTML = activeCards.map((x, i) => {
-      const { r, cycle, cycleKey } = x;
-      const preClass = cycle.isPre ? "pre-start" : "";
-      const hdrTag = cycle.isPre ? "⚠️ FIRST REMINDER (HEADS-UP)" : "🚨 CUT-OFF REMINDER";
-      const nagMins = r.mode === "test" ? 2 : 30;
-      const latestBadge = i === 0 ? `<span class="latest-tag">🆕 LATEST</span>` : "";
-      const safeKey = escapeHtml(cycleKey).replace(/"/g, "&quot;");
-
-      return `
-        <div class="reminder-card ${preClass}">
-          <div class="rc-hdr">
-            <span>${hdrTag} ${latestBadge}</span>
-            <span>Ping #${r.pingCount} (Nag every ${nagMins}m)</span>
-          </div>
-          <div class="rc-body">
-            <div class="rc-subj">${escapeHtml(r.subject)}</div>
-            <div class="rc-meta">
-              Schedule: <strong>${r.windowText}</strong> · Cycle: ${r.mode === "test" ? fmtHHMM(cycle.ts) : fmtDateShort(cycle.ts) + " " + fmtHHMM(cycle.ts)}
-            </div>
-            <button class="btn-ack" data-ack-key="${safeKey}">✅ Acknowledge</button>
-          </div>
-        </div>`;
-    }).join("");
-  }
-
-  function renderNextFiveUpcoming(nowMs, ackMap) {
-    const itemsWithNext = reminders.map(r => {
-      if (r.alreadyStaleBeforeImport) return null;
-
-      let latestCycle = null;
-      let nextFutureCycle = null;
-      for (const c of r.cycles) {
-        if (c.ts <= nowMs) latestCycle = c;
-        else if (!nextFutureCycle) nextFutureCycle = c;
-      }
-
-      const activeUnacked = latestCycle && !ackMap[`${r.id}@${latestCycle.ts}`];
-      if (!activeUnacked && !nextFutureCycle) return null;
-
-      const sortTs = activeUnacked ? latestCycle.ts : nextFutureCycle.ts;
-      return { r, latestCycle, nextFutureCycle, activeUnacked, sortTs };
-    }).filter(Boolean).sort((a, b) => a.sortTs - b.sortTs).slice(0, 5);
-
-    const sig = itemsWithNext.map(x => `${x.r.id}:${x.activeUnacked ? "act" : "up"}:${x.sortTs}`).join("|") + "::" + reminders.length;
-    if (sig === lastUpcomingSig) return;
-    lastUpcomingSig = sig;
-
-    const listEl = document.getElementById("upcomingList");
-    if (reminders.length === 0) {
-      listEl.innerHTML = `<div class="empty-state">Import your Excel file above to view upcoming reminders.</div>`;
-      return;
-    }
-    if (itemsWithNext.length === 0) {
-      listEl.innerHTML = `<div class="empty-state">All events from your Excel file are completed and acknowledged.</div>`;
-      return;
-    }
-
-    listEl.innerHTML = itemsWithNext.map(({ r, latestCycle, nextFutureCycle, activeUnacked }) => {
-      let statusHtml = "";
-      if (activeUnacked) {
-        statusHtml = `<span class="st-tag active">🔔 Active Now (Wait Ack)</span>`;
-      } else {
-        const nextStr = r.mode === "test"
-          ? fmtHHMM(nextFutureCycle.ts)
-          : `${fmtDateShort(nextFutureCycle.ts)} ${fmtHHMM(nextFutureCycle.ts)}`;
-        statusHtml = latestCycle
-          ? `<span class="st-tag acked">✅ Acked · Next: ${nextStr}</span>`
-          : `<span class="st-tag">Next: ${nextStr}</span>`;
-      }
-
-      return `
-        <div class="up-item">
-          <div class="up-left">
-            <div class="up-subj">${escapeHtml(r.subject)}</div>
-            <div class="up-details">${r.windowText} · ${r.multiLabel}</div>
-          </div>
-          <div class="up-right">
-            ${statusHtml}
-          </div>
-        </div>`;
-    }).join("");
-  }
-
-  document.getElementById("inlineCards").addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-ack-key]");
-    if (btn) setAcked(btn.getAttribute("data-ack-key"));
-  });
-
-  document.addEventListener("click", (e) => {
-    if (!waitingFirstClick) return;
-    if (e.target && e.target.id === "fileInput") return;
-    activateToastAlerts();
-  });
-
-  function escapeHtml(s) {
-    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  }
-
-  (function boot() {
-    updateNotifUI();
-    initKeepAwakeEngine();
-    try {
-      const saved = localStorage.getItem(SAVED_ROWS_KEY);
-      const savedName = localStorage.getItem(SAVED_NAME_KEY);
-      const savedImp = parseInt(localStorage.getItem(SAVED_IMP_KEY) || "0", 10);
-      if (saved && savedName) {
-        const rows = JSON.parse(saved);
-        if (Array.isArray(rows) && rows.length > 0) {
-          loadExcelRows(rows, savedName, false, savedImp || Date.now());
-          return;
-        }
-      }
-    } catch {}
-    evaluateAndRender();
-  })();
-</script>
-</body>
-</html>
+        g.gain.exponentialRampToValueAtTim
