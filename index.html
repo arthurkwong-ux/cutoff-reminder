@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Cut-Off Reminder App</title>
+<title>Cut-Off Reminder App (v5)</title>
 <style>
   :root {
     --lvl1-bg: #ECFDF5; --lvl1-border: #10B981; --lvl1-hdr: #059669; --lvl1-hdr-text: #FFFFFF; --lvl1-text: #065F46;
@@ -347,6 +347,25 @@
       </div>
     </div>
 
+    <!-- Standalone Safe Clock Script (runs independently even before main script) -->
+    <script>
+      (function () {
+        var D = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        function pad(n) { return n < 10 ? "0" + n : "" + n; }
+        window.__tickClock = function () {
+          try {
+            var now = (typeof window.getNow === "function") ? window.getNow() : new Date();
+            document.getElementById("liveClock").textContent =
+              pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
+            document.getElementById("liveDate").textContent =
+              D[now.getDay()] + ", " + (now.getMonth() + 1) + "/" + now.getDate() + "/" + now.getFullYear();
+          } catch (e) {}
+        };
+        window.__tickClock();
+        setInterval(window.__tickClock, 1000);
+      })();
+    </script>
+
     <div class="time-test-bar">
       <label for="manualTimeInput">🕒 Adjust Time:</label>
       <input
@@ -385,7 +404,7 @@
     <div class="upcoming-box">
       <div class="upcoming-hdr">
         <h3>📅 Next 5 Upcoming Events</h3>
-        <span id="totalLoadedText">0 events loaded (v4)</span>
+        <span id="totalLoadedText">0 events loaded (v5)</span>
       </div>
       <div id="upcomingList" class="upcoming-list">
         <div class="empty-state">Import your 4-column Excel file above to view upcoming reminders.</div>
@@ -405,7 +424,6 @@
   const SAVED_ROWS_KEY = "cutoff_excel_4col_rows_v3";
   const SAVED_NAME_KEY = "cutoff_excel_4col_filename_v3";
   const MUTE_KEY = "cutoff_app_muted_v1";
-  const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   let eventGroups = [];
   let firedSlots = {};
@@ -450,21 +468,12 @@
     return sharedAudioCtx;
   }
 
-  function getNow() {
+  window.getNow = function () {
     if (manualBaseMs !== null && manualAnchorRealMs !== null) {
       return new Date(manualBaseMs + (Date.now() - manualAnchorRealMs));
     }
     return new Date();
-  }
-
-  function updateClockDisplay(now) {
-    const hh = String(now.getHours()).padStart(2, "0");
-    const mm = String(now.getMinutes()).padStart(2, "0");
-    const ss = String(now.getSeconds()).padStart(2, "0");
-    document.getElementById("liveClock").textContent = `${hh}:${mm}:${ss}`;
-    document.getElementById("liveDate").textContent =
-      `${DAYS_SHORT[now.getDay()]}, ${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()}`;
-  }
+  };
 
   function parseManualTimeStr(str) {
     const s = str.trim();
@@ -507,7 +516,7 @@
       const ampm = m[4] ? m[4].toUpperCase() : "";
       if (ampm === "PM" && hr < 12) hr += 12;
       if (ampm === "AM" && hr === 12) hr = 0;
-      const base = getNow();
+      const base = window.getNow();
       return new Date(base.getFullYear(), base.getMonth(), base.getDate(), hr, min, sec, 0).getTime();
     }
 
@@ -614,18 +623,4 @@
     } catch {}
 
     if (location.protocol !== "file:" && "Notification" in window && Notification.permission === "default") {
-      try { await Notification.requestPermission(); } catch {}
-    }
-    updateNotifUI();
-  }
-
-  function initKeepAwakeEngine() {
-    let lockActive = false;
-    if (location.protocol !== "file:" && "locks" in navigator) {
-      try {
-        navigator.locks.request("cutoff_excel_keep_awake", () => new Promise(() => {}));
-        lockActive = true;
-      } catch {}
-    }
-
-    let fallbackTimer = setInterval(evaluateAndRender,
+      try { await Notification.requestPermission()
