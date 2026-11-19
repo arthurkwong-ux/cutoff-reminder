@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Cut-Off Reminder App (v5)</title>
+<title>Cut-Off Reminder App (v6)</title>
 <style>
   :root {
     --lvl1-bg: #ECFDF5; --lvl1-border: #10B981; --lvl1-hdr: #059669; --lvl1-hdr-text: #FFFFFF; --lvl1-text: #065F46;
@@ -347,7 +347,7 @@
       </div>
     </div>
 
-    <!-- Standalone Safe Clock Script (runs independently even before main script) -->
+    <!-- Standalone Safe Clock Script -->
     <script>
       (function () {
         var D = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -382,9 +382,9 @@
     </div>
 
     <div id="dropzone" class="dropzone" onclick="document.getElementById('fileInput').click()">
-      <div class="drop-title">📂 Import 4-Column Excel Schedule (.xlsx / .xls / .csv)</div>
+      <div class="drop-title">📂 Import Excel Schedule (.xlsx / .xls / .csv)</div>
       <div class="drop-sub">
-        <strong>A:</strong> Subject &nbsp;|&nbsp; <strong>B:</strong> Start Date/Time &nbsp;|&nbsp; <strong>C:</strong> End Date/Time &nbsp;|&nbsp; <strong>D:</strong> Importance Level (1=Green, 2=Yellow, 3=Orange)<br>
+        <strong>A:</strong> Subject &nbsp;|&nbsp; <strong>B:</strong> Start Date/Time &nbsp;|&nbsp; <strong>C:</strong> End Date/Time &nbsp;|&nbsp; <strong>D–H:</strong> Ignored &nbsp;|&nbsp; <strong>I:</strong> Importance Level (1=Green, 2=Yellow, 3=Orange)<br>
         <em>Date-only events remind twice daily (09:00 &amp; 14:15). Consecutive rows with the same name count as business days.</em>
       </div>
       <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleExcelImport(this.files[0])" />
@@ -404,10 +404,10 @@
     <div class="upcoming-box">
       <div class="upcoming-hdr">
         <h3>📅 Next 5 Upcoming Events</h3>
-        <span id="totalLoadedText">0 events loaded (v5)</span>
+        <span id="totalLoadedText">0 events loaded (v6)</span>
       </div>
       <div id="upcomingList" class="upcoming-list">
-        <div class="empty-state">Import your 4-column Excel file above to view upcoming reminders.</div>
+        <div class="empty-state">Import your Excel file above (Level in Column I) to view upcoming reminders.</div>
       </div>
     </div>
   </div>
@@ -421,8 +421,8 @@
     }
   });
 
-  const SAVED_ROWS_KEY = "cutoff_excel_4col_rows_v3";
-  const SAVED_NAME_KEY = "cutoff_excel_4col_filename_v3";
+  const SAVED_ROWS_KEY = "cutoff_excel_col_i_rows_v4";
+  const SAVED_NAME_KEY = "cutoff_excel_col_i_filename_v4";
   const MUTE_KEY = "cutoff_app_muted_v1";
 
   let eventGroups = [];
@@ -623,4 +623,629 @@
     } catch {}
 
     if (location.protocol !== "file:" && "Notification" in window && Notification.permission === "default") {
-      try { await Notification.requestPermission()
+      try { await Notification.requestPermission(); } catch {}
+    }
+    updateNotifUI();
+  }
+
+  function initKeepAwakeEngine() {
+    let lockActive = false;
+    if (location.protocol !== "file:" && "locks" in navigator) {
+      try {
+        navigator.locks.request("cutoff_excel_keep_awake", () => new Promise(() => {}));
+        lockActive = true;
+      } catch {}
+    }
+
+    let fallbackTimer = setInterval(evaluateAndRender, 1000);
+    if (location.protocol !== "file:") {
+      try {
+        const w = new Worker(URL.createObjectURL(new Blob(["setInterval(()=>postMessage(1),1000)"], { type: "application/javascript" })));
+        w.onmessage = () => {
+          if (fallbackTimer) { clearInterval(fallbackTimer); fallbackTimer = null; }
+          evaluateAndRender();
+        };
+      } catch {}
+    }
+
+    const badge = document.getElementById("keepAwakeBadge");
+    if (lockActive) {
+      badge.textContent = "🛡️ Anti-Sleep Active";
+      badge.className = "shield-pill";
+    } else {
+      badge.textContent = "🕒 Local Timer Active";
+      badge.className = "shield-pill warn";
+    }
+  }
+
+  function dateKeyFromDate(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  }
+
+  function todayKey() {
+    return dateKeyFromDate(window.getNow());
+  }
+
+  function getAckMap() {
+    try { return JSON.parse(localStorage.getItem("excel_ack_v3_" + todayKey()) || "{}"); }
+    catch { return {}; }
+  }
+
+  function setAcked(slotKey) {
+    const map = getAckMap();
+    const n = window.getNow();
+    map[slotKey] = `${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}`;
+    try { localStorage.setItem("excel_ack_v3_" + todayKey(), JSON.stringify(map)); } catch {}
+    lastCardSig = "__force__";
+    lastUpcomingSig = "__force__";
+    evaluateAndRender();
+  }
+
+  function parseCellDateOrDateTime(raw) {
+    if (raw === null || raw === undefined || raw === "") return null;
+    const now = window.getNow();
+
+    if (typeof raw === "number") {
+      if (raw >= 0 && raw < 1) {
+        const totalMins = Math.round(raw * 24 * 60);
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(totalMins / 60) % 24, totalMins % 60, 0, 0);
+        return { dateOnly: new Date(d.getFullYear(), d.getMonth(), d.getDate()), ms: d.getTime(), hasTime: true };
+      }
+      if (raw > 1) {
+        const hasFrac = Math.abs(raw - Math.round(raw)) > 1e-6;
+        const utcMs = Math.round((raw - 25569) * 86400 * 1000);
+        const u = new Date(utcMs);
+        const dateOnly = new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate());
+        const d = new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate(), hasFrac ? u.getUTCHours() : 0, hasFrac ? u.getUTCMinutes() : 0, 0, 0);
+        return { dateOnly, ms: d.getTime(), hasTime: hasFrac };
+      }
+    }
+
+    const s = String(raw).trim();
+
+    let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?$/i);
+    if (m) {
+      const month = parseInt(m[1], 10) - 1;
+      const day = parseInt(m[2], 10);
+      let year = parseInt(m[3], 10);
+      if (year < 100) year += 2000;
+      const hasTime = m[4] !== undefined;
+      let hr = hasTime ? parseInt(m[4], 10) : 0;
+      const min = hasTime ? parseInt(m[5], 10) : 0;
+      const sec = hasTime && m[6] !== undefined ? parseInt(m[6], 10) : 0;
+      const ampm = m[7] ? m[7].toUpperCase() : "";
+      if (ampm === "PM" && hr < 12) hr += 12;
+      if (ampm === "AM" && hr === 12) hr = 0;
+      const dateOnly = new Date(year, month, day);
+      const ms = new Date(year, month, day, hr, min, sec, 0).getTime();
+      return { dateOnly, ms, hasTime };
+    }
+
+    m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?$/i);
+    if (m) {
+      const year = parseInt(m[1], 10);
+      const month = parseInt(m[2], 10) - 1;
+      const day = parseInt(m[3], 10);
+      const hasTime = m[4] !== undefined;
+      let hr = hasTime ? parseInt(m[4], 10) : 0;
+      const min = hasTime ? parseInt(m[5], 10) : 0;
+      const sec = hasTime && m[6] !== undefined ? parseInt(m[6], 10) : 0;
+      const ampm = m[7] ? m[7].toUpperCase() : "";
+      if (ampm === "PM" && hr < 12) hr += 12;
+      if (ampm === "AM" && hr === 12) hr = 0;
+      const dateOnly = new Date(year, month, day);
+      const ms = new Date(year, month, day, hr, min, sec, 0).getTime();
+      return { dateOnly, ms, hasTime };
+    }
+
+    m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+    if (m) {
+      let hr = parseInt(m[1], 10);
+      const min = parseInt(m[2], 10);
+      const sec = m[3] !== undefined ? parseInt(m[3], 10) : 0;
+      const ampm = m[4] ? m[4].toUpperCase() : "";
+      if (ampm === "PM" && hr < 12) hr += 12;
+      if (ampm === "AM" && hr === 12) hr = 0;
+      const dateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const ms = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hr, min, sec, 0).getTime();
+      return { dateOnly, ms, hasTime: true };
+    }
+
+    return null;
+  }
+
+  function fmtDateOnly(d) {
+    return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;
+  }
+  function fmtDateTime(ms) {
+    const d = new Date(ms);
+    return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  }
+
+  function loadExcelRows(rawRows, fileName, save = true) {
+    const parsedRows = [];
+    rawRows.forEach((cols) => {
+      if (!cols || cols.length < 2) return;
+      const subj = String(cols[0] ?? "").trim(); // Col A: Subject
+      if (!subj || subj.toLowerCase().includes("subject")) return;
+
+      const startInfo = parseCellDateOrDateTime(cols[1]); // Col B: Start
+      if (!startInfo) return;
+
+      const endInfo = parseCellDateOrDateTime(cols[2]) || startInfo; // Col C: End
+      // Col D..H (cols[3]..cols[7]) ignored; Col I (cols[8]) = Importance Level
+      const level = Math.min(3, Math.max(1, parseInt(cols[8], 10) || 1));
+
+      parsedRows.push({
+        subject: subj,
+        startInfo,
+        endInfo,
+        hasTime: startInfo.hasTime || endInfo.hasTime,
+        level
+      });
+    });
+
+    const groups = [];
+    parsedRows.forEach((row) => {
+      const lastGroup = groups[groups.length - 1];
+      if (lastGroup && lastGroup.subject.toLowerCase() === row.subject.toLowerCase()) {
+        lastGroup.rows.push(row);
+        lastGroup.level = Math.max(lastGroup.level, row.level);
+      } else {
+        groups.push({ subject: row.subject, rows: [row], level: row.level });
+      }
+    });
+
+    eventGroups = groups.map((g, gIdx) => {
+      const lastRow = g.rows[g.rows.length - 1];
+      const minDate = new Date(Math.min(...g.rows.map(r => r.startInfo.dateOnly.getTime())));
+      const deadlineDate = new Date(lastRow.endInfo.dateOnly.getTime());
+      const deadlineEndMs = lastRow.hasTime
+        ? Math.max(lastRow.endInfo.ms, lastRow.startInfo.ms)
+        : new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), deadlineDate.getDate(), 23, 59, 59, 999).getTime();
+
+      const totalBizDays = g.rows.length;
+      const spansMultipleDays = totalBizDays > 1;
+      const isDateOnlyGroup = g.rows.every(r => !r.hasTime);
+
+      const id = `grp_${gIdx}_${g.subject}_${fmtDateOnly(minDate)}_${fmtDateOnly(deadlineDate)}`;
+      return {
+        id,
+        subject: g.subject,
+        rows: g.rows,
+        totalBizDays,
+        level: g.level,
+        minDate,
+        deadlineDate,
+        deadlineEndMs,
+        spansMultipleDays,
+        isDateOnlyGroup
+      };
+    });
+
+    if (save) {
+      try {
+        localStorage.setItem(SAVED_ROWS_KEY, JSON.stringify(rawRows));
+        localStorage.setItem(SAVED_NAME_KEY, fileName);
+      } catch {}
+    }
+
+    document.getElementById("fileStatusText").textContent = `✅ Loaded: ${fileName}`;
+    document.getElementById("clearBtn").classList.remove("hidden");
+    document.getElementById("totalLoadedText").textContent = `${eventGroups.length} event(s) loaded (v6)`;
+
+    firedSlots = {};
+    lastCardSig = "__force__";
+    lastUpcomingSig = "__force__";
+    evaluateAndRender();
+  }
+
+  function clearSchedule() {
+    try {
+      localStorage.removeItem(SAVED_ROWS_KEY);
+      localStorage.removeItem(SAVED_NAME_KEY);
+    } catch {}
+    eventGroups = [];
+    firedSlots = {};
+    document.getElementById("fileInput").value = "";
+    document.getElementById("fileStatusText").textContent = "No Excel file imported yet.";
+    document.getElementById("clearBtn").classList.add("hidden");
+    document.getElementById("totalLoadedText").textContent = "0 events loaded (v6)";
+    lastCardSig = "__force__";
+    lastUpcomingSig = "__force__";
+    evaluateAndRender();
+  }
+
+  function parseCSV(text) {
+    return text.split(/\r?\n/).filter(l => l.trim()).map(line => {
+      const out = [];
+      let cur = "", inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') inQ = !inQ;
+        else if (ch === ',' && !inQ) { out.push(cur); cur = ""; }
+        else cur += ch;
+      }
+      out.push(cur);
+      return out;
+    });
+  }
+
+  async function handleExcelImport(file) {
+    if (!file) return;
+    const ext = file.name.split(".").pop().toLowerCase();
+
+    if (ext === "csv") {
+      const reader = new FileReader();
+      reader.onload = e => loadExcelRows(parseCSV(e.target.result), file.name, true);
+      reader.readAsText(file);
+    } else if (ext === "xlsx" || ext === "xls") {
+      try {
+        await ensureXlsxLoaded();
+      } catch {
+        alert("Your network blocked the external .xlsx reader. In Excel, Save As CSV UTF-8 (.csv) and import the .csv file instead.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = e => {
+        const wb = XLSX.read(e.target.result, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" });
+        loadExcelRows(rows, file.name, true);
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      alert("Please import an Excel (.xlsx, .xls, or .csv) file.");
+    }
+  }
+
+  const dz = document.getElementById("dropzone");
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("dragover"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
+  dz.addEventListener("drop", e => {
+    e.preventDefault();
+    dz.classList.remove("dragover");
+    if (e.dataTransfer.files.length) handleExcelImport(e.dataTransfer.files[0]);
+  });
+
+  function playMildChime(level) {
+    if (isMuted) return;
+    try {
+      const ctx = getAudioCtx();
+      if (!ctx) return;
+      const freqs = level === 3 ? [523.25, 659.25, 783.99] : level === 2 ? [523.25, 659.25] : [523.25];
+      for (let rep = 0; rep < 3; rep++) {
+        const repOffset = rep * 0.85;
+        freqs.forEach((f, i) => {
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          const t = ctx.currentTime + repOffset + i * 0.15;
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(f, t);
+          g.gain.setValueAtTime(0.001, t);
+          g.gain.linearRampToValueAtTime(0.035, t + 0.03);
+          g.gain.exponentialRampToValueAtTime(0.0005, t + 0.42);
+          osc.connect(g); g.connect(ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.45);
+        });
+      }
+    } catch {}
+  }
+
+  function fireToast(card) {
+    if (location.protocol !== "file:" && "Notification" in window && Notification.permission === "granted") {
+      try {
+        const lvlIcon = card.level === 3 ? "🟠" : card.level === 2 ? "🟡" : "🟢";
+        const extra = card.bizDaysText ? ` · ${card.bizDaysText}` : "";
+        const n = new Notification(`${lvlIcon} Level ${card.level} Reminder: ${card.subject}`, {
+          body: `${card.slotLabel}${extra}. Click to Acknowledge Today.`,
+          requireInteraction: true
+        });
+        n.onclick = () => {
+          window.focus();
+          n.close();
+        };
+      } catch {}
+    }
+  }
+
+  function getActiveTriggerForGroup(g, now, todayDate, todayStr) {
+    const nowMs = now.getTime();
+    const morningMs = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate(), 9, 0, 0, 0).getTime();
+    const afternoonMs = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate(), 14, 15, 0, 0).getTime();
+
+    for (let rIdx = 0; rIdx < g.rows.length; rIdx++) {
+      const r = g.rows[rIdx];
+      if (r.hasTime) {
+        const sMs = r.startInfo.ms;
+        const eMs = Math.max(r.endInfo.ms, sMs);
+        if (nowMs >= sMs && nowMs <= eMs) {
+          return {
+            activeRowIdx: rIdx,
+            slotKey: `${g.id}|timed|${rIdx}`,
+            slotLabel: `Scheduled: ${fmtDateTime(sMs)} → ${fmtDateTime(eMs)}`,
+            triggerMs: sMs
+          };
+        }
+      } else {
+        const startStr = dateKeyFromDate(r.startInfo.dateOnly);
+        const endStr = dateKeyFromDate(r.endInfo.dateOnly);
+        if (todayStr === startStr || (todayStr >= startStr && todayStr <= endStr)) {
+          if (nowMs >= afternoonMs) {
+            return {
+              activeRowIdx: rIdx,
+              slotKey: `${g.id}|${todayStr}|14:15`,
+              slotLabel: `Afternoon Reminder (14:15)`,
+              triggerMs: afternoonMs
+            };
+          }
+          if (nowMs >= morningMs) {
+            return {
+              activeRowIdx: rIdx,
+              slotKey: `${g.id}|${todayStr}|09:00`,
+              slotLabel: `Morning Reminder (09:00)`,
+              triggerMs: morningMs
+            };
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function evaluateAndRender() {
+    if (window.__tickClock) window.__tickClock();
+
+    try {
+      const now = window.getNow();
+      const nowMs = now.getTime();
+      const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const todayStr = dateKeyFromDate(todayDate);
+
+      const ackMap = getAckMap();
+      const activeCards = [];
+      let chimeLvl = 0;
+
+      eventGroups.forEach((g, idx) => {
+        const trig = getActiveTriggerForGroup(g, now, todayDate, todayStr);
+        if (!trig) return;
+        if (ackMap[trig.slotKey]) return;
+
+        let bizDaysText = "";
+        if (g.spansMultipleDays) {
+          const rowsBelow = (g.rows.length - 1) - trig.activeRowIdx;
+          const dayNum = trig.activeRowIdx + 1;
+          if (rowsBelow === 0) {
+            bizDaysText = `⏳ Deadline is TODAY (${fmtDateOnly(g.deadlineDate)}) — 0 days remaining (Day ${dayNum} of ${g.totalBizDays})`;
+          } else if (rowsBelow === 1) {
+            bizDaysText = `⏳ 1 business day until deadline (${fmtDateOnly(g.deadlineDate)}) · Day ${dayNum} of ${g.totalBizDays}`;
+          } else {
+            bizDaysText = `⏳ ${rowsBelow} business days until deadline (${fmtDateOnly(g.deadlineDate)}) · Day ${dayNum} of ${g.totalBizDays}`;
+          }
+        }
+
+        let justBuzzed = false;
+        if (!firedSlots[trig.slotKey]) {
+          firedSlots[trig.slotKey] = nowMs + idx * 0.001;
+          justBuzzed = true;
+          chimeLvl = Math.max(chimeLvl, g.level);
+          fireToast({
+            subject: g.subject,
+            level: g.level,
+            slotLabel: trig.slotLabel,
+            bizDaysText
+          });
+        }
+
+        activeCards.push({
+          slotKey: trig.slotKey,
+          subject: g.subject,
+          level: g.level,
+          slotLabel: trig.slotLabel,
+          bizDaysText,
+          rangeText: g.spansMultipleDays
+            ? `${fmtDateOnly(g.minDate)} → ${fmtDateOnly(g.deadlineDate)}`
+            : fmtDateOnly(g.minDate),
+          firedAt: firedSlots[trig.slotKey],
+          justBuzzed
+        });
+      });
+
+      if (chimeLvl > 0) playMildChime(chimeLvl);
+
+      renderActiveCards(activeCards);
+      renderNextFiveUpcoming(now, todayDate, todayStr, ackMap);
+    } catch (err) {
+      const b = document.getElementById("errBanner");
+      if (b) { b.textContent = "Render error: " + err.message; b.classList.remove("hidden"); }
+    }
+  }
+
+  function renderActiveCards(active) {
+    active.sort((a, b) => (b.firedAt - a.firedAt) || (b.level - a.level));
+
+    const sig = active.map(c => `${c.slotKey}@${c.firedAt}`).join("||");
+    if (sig === lastCardSig) return;
+    lastCardSig = sig;
+
+    const inlineBox = document.getElementById("inlineCards");
+    if (active.length === 0) {
+      inlineBox.innerHTML = "";
+      inlineBox.className = "inline-cards is-empty";
+      return;
+    }
+
+    inlineBox.className = "inline-cards has-alerts";
+    inlineBox.innerHTML = active.map((c, i) => {
+      const lvlTag = c.level === 3 ? "🟠 LEVEL 3 · URGENT" : c.level === 2 ? "🟡 LEVEL 2 · IMPORTANT" : "🟢 LEVEL 1 · REMINDER";
+      const latestBadge = i === 0 ? `<span class="latest-tag">🆕 LATEST</span>` : "";
+      const buzzClass = c.justBuzzed ? "buzz-alarm" : "";
+      const safeKey = escapeHtml(c.slotKey).replace(/"/g, "&quot;");
+      const bizHtml = c.bizDaysText ? `<div class="rc-bizdays">${escapeHtml(c.bizDaysText)}</div>` : "";
+      return `
+        <div class="reminder-card card-lvl-${c.level} ${buzzClass}">
+          <div class="rc-hdr">
+            <span>${lvlTag} ${latestBadge}</span>
+            <span>${escapeHtml(c.slotLabel)}</span>
+          </div>
+          <div class="rc-body">
+            <div class="rc-subj">${escapeHtml(c.subject)}</div>
+            <div class="rc-meta">Event Period: <strong>${escapeHtml(c.rangeText)}</strong></div>
+            ${bizHtml}
+            <button class="btn-ack" data-ack-id="${safeKey}">✅ Acknowledge Today</button>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  function getNextTriggerMsForGroup(g, now) {
+    const nowMs = now.getTime();
+    let earliest = Infinity;
+
+    g.rows.forEach(r => {
+      if (r.hasTime) {
+        const sMs = r.startInfo.ms;
+        const eMs = Math.max(r.endInfo.ms, sMs);
+        if (eMs >= nowMs && sMs < earliest) earliest = sMs;
+      } else {
+        const d = r.startInfo.dateOnly;
+        const t1 = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0, 0, 0).getTime();
+        const t2 = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 14, 15, 0, 0).getTime();
+        const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
+        if (dayEnd >= nowMs) {
+          const candidate = nowMs <= t1 ? t1 : t2;
+          if (candidate < earliest) earliest = candidate;
+        }
+      }
+    });
+
+    return earliest;
+  }
+
+  function renderNextFiveUpcoming(now, todayDate, todayStr, ackMap) {
+    const nowMs = now.getTime();
+
+    const upcoming = eventGroups
+      .filter(g => g.deadlineEndMs >= nowMs)
+      .map(g => ({ g, sortMs: getNextTriggerMsForGroup(g, now) }))
+      .sort((a, b) => a.sortMs - b.sortMs)
+      .slice(0, 5)
+      .map(item => item.g);
+
+    const sig = upcoming.map(g => {
+      const trig = getActiveTriggerForGroup(g, now, todayDate, todayStr);
+      const st = trig ? (ackMap[trig.slotKey] ? "ack" : "act") : "up";
+      return `${g.id}:${st}`;
+    }).join("|") + "::" + eventGroups.length + "::" + todayStr;
+
+    if (sig === lastUpcomingSig) return;
+    lastUpcomingSig = sig;
+
+    const listEl = document.getElementById("upcomingList");
+    if (eventGroups.length === 0) {
+      listEl.innerHTML = `<div class="empty-state">Import your Excel file above (Level in Column I) to view upcoming reminders.</div>`;
+      return;
+    }
+    if (upcoming.length === 0) {
+      listEl.innerHTML = `<div class="empty-state">All events from your Excel file have already ended.</div>`;
+      return;
+    }
+
+    const lvlNames = { 1: "Level 1 · Green", 2: "Level 2 · Yellow", 3: "Level 3 · Orange" };
+    listEl.innerHTML = upcoming.map(g => {
+      const trig = getActiveTriggerForGroup(g, now, todayDate, todayStr);
+      const isAck = trig && !!ackMap[trig.slotKey];
+      const isAct = trig && !isAck;
+
+      const stText = isAck
+        ? `<span class="st-tag acked">✅ Acked (${ackMap[trig.slotKey]})</span>`
+        : isAct
+          ? `<span class="st-tag active">🔔 Active Now</span>`
+          : `<span class="st-tag">Upcoming</span>`;
+
+      let dateSpan = "";
+      if (g.spansMultipleDays) {
+        const spanText = `Spans ${g.totalBizDays} business days`;
+        if (trig) {
+          const left = (g.rows.length - 1) - trig.activeRowIdx;
+          dateSpan = `${fmtDateOnly(g.minDate)} → ${fmtDateOnly(g.deadlineDate)} (${spanText} · ${left} left to deadline)`;
+        } else {
+          dateSpan = `${fmtDateOnly(g.minDate)} → ${fmtDateOnly(g.deadlineDate)} (${spanText})`;
+        }
+      } else {
+        dateSpan = g.isDateOnlyGroup
+          ? fmtDateOnly(g.minDate)
+          : `${fmtDateTime(g.rows[0].startInfo.ms)} → ${fmtDateTime(g.rows[0].endInfo.ms)}`;
+      }
+
+      const scheduleNote = g.isDateOnlyGroup
+        ? `<div class="up-schedule">Reminded twice daily during the event: 09:00 and 14:15</div>`
+        : `<div class="up-schedule">Single scheduled reminder at ${fmtDateTime(g.rows[0].startInfo.ms)}</div>`;
+
+      return `
+        <div class="up-item">
+          <div class="up-left">
+            <div class="up-subj">${escapeHtml(g.subject)}</div>
+            <div class="up-details">${escapeHtml(dateSpan)}</div>
+            ${scheduleNote}
+          </div>
+          <div class="up-right">
+            <span class="lvl-badge lvl-${g.level}">${lvlNames[g.level]}</span>
+            ${stText}
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  document.getElementById("inlineCards").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-ack-id]");
+    if (btn) setAcked(btn.getAttribute("data-ack-id"));
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!waitingFirstClick) return;
+    if (e.target && (e.target.id === "fileInput" || e.target.closest("#muteBtn, .time-test-bar"))) return;
+    activateToastAlerts();
+  });
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  function boot() {
+    updateMuteUI();
+    evaluateAndRender();
+    updateNotifUI();
+    initKeepAwakeEngine();
+    try {
+      const saved = localStorage.getItem(SAVED_ROWS_KEY);
+      const savedName = localStorage.getItem(SAVED_NAME_KEY) || "Saved Excel Schedule";
+      if (saved) {
+        const rows = JSON.parse(saved);
+        if (Array.isArray(rows) && rows.length > 0) {
+          loadExcelRows(rows, savedName, false);
+        }
+      }
+    } catch {}
+    window.__appBooted = true;
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+</script>
+<script>
+  if (!window.__appBooted) {
+    var b = document.getElementById("errBanner");
+    if (b) {
+      b.textContent = "⚠️ Main app script did not finish loading (check if the bottom of index.html was cut off when pasting into GitHub).";
+      b.classList.remove("hidden");
+    }
+  }
+</script>
+</body>
+</html>
