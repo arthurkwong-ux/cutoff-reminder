@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Cut-Off Reminder App (v6)</title>
+<title>Cut-Off Reminder App (v7)</title>
 <style>
   :root {
     --lvl1-bg: #ECFDF5; --lvl1-border: #10B981; --lvl1-hdr: #059669; --lvl1-hdr-text: #FFFFFF; --lvl1-text: #065F46;
@@ -404,7 +404,7 @@
     <div class="upcoming-box">
       <div class="upcoming-hdr">
         <h3>📅 Next 5 Upcoming Events</h3>
-        <span id="totalLoadedText">0 events loaded (v6)</span>
+        <span id="totalLoadedText">0 events loaded (v7)</span>
       </div>
       <div id="upcomingList" class="upcoming-list">
         <div class="empty-state">Import your Excel file above (Level in Column I) to view upcoming reminders.</div>
@@ -766,13 +766,13 @@
     const parsedRows = [];
     rawRows.forEach((cols) => {
       if (!cols || cols.length < 2) return;
-      const subj = String(cols[0] ?? "").trim(); // Col A: Subject
+      const subj = String(cols[0] ?? "").trim();
       if (!subj || subj.toLowerCase().includes("subject")) return;
 
-      const startInfo = parseCellDateOrDateTime(cols[1]); // Col B: Start
+      const startInfo = parseCellDateOrDateTime(cols[1]);
       if (!startInfo) return;
 
-      const endInfo = parseCellDateOrDateTime(cols[2]) || startInfo; // Col C: End
+      const endInfo = parseCellDateOrDateTime(cols[2]) || startInfo;
       // Col D..H (cols[3]..cols[7]) ignored; Col I (cols[8]) = Importance Level
       const level = Math.min(3, Math.max(1, parseInt(cols[8], 10) || 1));
 
@@ -832,7 +832,7 @@
 
     document.getElementById("fileStatusText").textContent = `✅ Loaded: ${fileName}`;
     document.getElementById("clearBtn").classList.remove("hidden");
-    document.getElementById("totalLoadedText").textContent = `${eventGroups.length} event(s) loaded (v6)`;
+    document.getElementById("totalLoadedText").textContent = `${eventGroups.length} event(s) loaded (v7)`;
 
     firedSlots = {};
     lastCardSig = "__force__";
@@ -850,7 +850,7 @@
     document.getElementById("fileInput").value = "";
     document.getElementById("fileStatusText").textContent = "No Excel file imported yet.";
     document.getElementById("clearBtn").classList.add("hidden");
-    document.getElementById("totalLoadedText").textContent = "0 events loaded (v6)";
+    document.getElementById("totalLoadedText").textContent = "0 events loaded (v7)";
     lastCardSig = "__force__";
     lastUpcomingSig = "__force__";
     evaluateAndRender();
@@ -1214,35 +1214,30 @@
     return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   }
 
-  function boot() {
+  try {
     updateMuteUI();
     evaluateAndRender();
     updateNotifUI();
     initKeepAwakeEngine();
-    try {
-      const saved = localStorage.getItem(SAVED_ROWS_KEY);
-      const savedName = localStorage.getItem(SAVED_NAME_KEY) || "Saved Excel Schedule";
-      if (saved) {
-        const rows = JSON.parse(saved);
-        if (Array.isArray(rows) && rows.length > 0) {
-          loadExcelRows(rows, savedName, false);
-        }
+    const saved = localStorage.getItem(SAVED_ROWS_KEY);
+    const savedName = localStorage.getItem(SAVED_NAME_KEY) || "Saved Excel Schedule";
+    if (saved) {
+      const rows = JSON.parse(saved);
+      if (Array.isArray(rows) && rows.length > 0) {
+        loadExcelRows(rows, savedName, false);
       }
-    } catch {}
+    }
     window.__appBooted = true;
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
-  } else {
-    boot();
+  } catch (err) {
+    const b = document.getElementById("errBanner");
+    if (b) { b.textContent = "Startup error: " + err.message; b.classList.remove("hidden"); }
   }
 </script>
 <script>
   if (!window.__appBooted) {
     var b = document.getElementById("errBanner");
     if (b) {
-      b.textContent = "⚠️ Main app script did not finish loading (check if the bottom of index.html was cut off when pasting into GitHub).";
+      b.textContent = "⚠️ Main app script did not finish loading (check if the bottom of index.html was cut off).";
       b.classList.remove("hidden");
     }
   }
