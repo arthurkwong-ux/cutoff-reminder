@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Cut-Off Reminder App (v7)</title>
+<title>Cut-Off Reminder App (v8)</title>
 <style>
   :root {
     --lvl1-bg: #ECFDF5; --lvl1-border: #10B981; --lvl1-hdr: #059669; --lvl1-hdr-text: #FFFFFF; --lvl1-text: #065F46;
@@ -28,7 +28,7 @@
     border: 1px solid #E2E8F0;
     border-radius: 14px;
     padding: 24px;
-    width: 680px;
+    width: 700px;
     max-width: 100%;
     box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
   }
@@ -148,19 +148,23 @@
     text-align: center;
     cursor: pointer;
     transition: all 0.15s;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
   }
   .dropzone:hover, .dropzone.dragover { background: #DBEAFE; border-color: #2563EB; }
   .drop-title { font-size: 14px; font-weight: 700; color: #1E40AF; margin-bottom: 4px; }
   .drop-sub { font-size: 11.5px; color: #475569; line-height: 1.5; }
 
+  /* Loaded Files Chip List */
+  .files-bar {
+    margin-bottom: 14px;
+  }
   .import-meta {
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-size: 12px;
     color: #475569;
-    margin-bottom: 14px;
+    margin-bottom: 8px;
     gap: 8px;
     flex-wrap: wrap;
   }
@@ -173,6 +177,42 @@
     cursor: pointer;
     text-decoration: underline;
   }
+  .file-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .file-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: #F1F5F9;
+    border: 1px solid #CBD5E1;
+    border-radius: 999px;
+    padding: 4px 8px 4px 11px;
+    font-size: 12px;
+    color: #0F172A;
+    font-weight: 600;
+  }
+  .file-chip small {
+    color: #64748B;
+    font-weight: 500;
+  }
+  .file-remove-btn {
+    background: #E2E8F0;
+    color: #334155;
+    border: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .file-remove-btn:hover { background: #FCA5A5; color: #991B1B; }
 
   .big-activate-btn {
     width: 100%;
@@ -214,9 +254,40 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 10px;
+    gap: 8px;
+    flex-wrap: wrap;
   }
   .upcoming-hdr h3 { font-size: 14px; font-weight: 700; color: #1E293B; }
-  .upcoming-hdr span { font-size: 11.5px; color: #64748B; }
+  .upcoming-hdr span.meta-count { font-size: 11.5px; color: #64748B; }
+
+  /* Month Browser Controls */
+  .month-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .arrow-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid #CBD5E1;
+    background: #FFFFFF;
+    color: #1E293B;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .arrow-btn:hover { background: #EFF6FF; border-color: #60A5FA; color: #1D4ED8; }
+  .month-label {
+    min-width: 126px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #0F172A;
+  }
 
   .upcoming-list { display: flex; flex-direction: column; gap: 8px; }
   .up-item {
@@ -231,7 +302,15 @@
     font-size: 12.5px;
   }
   .up-left { min-width: 0; flex: 1; }
-  .up-subj { font-weight: 700; color: #0F172A; margin-bottom: 2px; }
+  .up-subj { font-weight: 700; color: #0F172A; margin-bottom: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .src-tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: #E2E8F0;
+    color: #334155;
+  }
   .up-details { font-size: 11.5px; color: #475569; line-height: 1.4; }
   .up-schedule { font-size: 11.5px; color: #1E40AF; font-weight: 600; margin-top: 2px; }
   .up-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
@@ -244,6 +323,7 @@
   .st-tag { font-size: 11px; font-weight: 600; color: #475569; }
   .st-tag.active { color: #EA580C; font-weight: 700; }
   .st-tag.acked { color: #059669; font-weight: 700; }
+  .st-tag.ended { color: #94A3B8; }
 
   .empty-state {
     text-align: center;
@@ -381,18 +461,22 @@
       <button class="mini-btn" onclick="resetCurrentDayAcks()" title="Clear acknowledgements for the currently displayed date">Reset Acks</button>
     </div>
 
+    <!-- Multi-File Excel Import -->
     <div id="dropzone" class="dropzone" onclick="document.getElementById('fileInput').click()">
-      <div class="drop-title">📂 Import Excel Schedule (.xlsx / .xls / .csv)</div>
+      <div class="drop-title">📂 Add Excel Schedule(s) (.xlsx / .xls / .csv)</div>
       <div class="drop-sub">
-        <strong>A:</strong> Subject &nbsp;|&nbsp; <strong>B:</strong> Start Date/Time &nbsp;|&nbsp; <strong>C:</strong> End Date/Time &nbsp;|&nbsp; <strong>D–H:</strong> Ignored &nbsp;|&nbsp; <strong>I:</strong> Importance Level (1=Green, 2=Yellow, 3=Orange)<br>
-        <em>Date-only events remind twice daily (09:00 &amp; 14:15). Consecutive rows with the same name count as business days.</em>
+        Select or drop <strong>one or multiple</strong> Excel files — schedules automatically combine.<br>
+        <strong>A:</strong> Subject &nbsp;|&nbsp; <strong>B:</strong> Start &nbsp;|&nbsp; <strong>C:</strong> End &nbsp;|&nbsp; <strong>D–H:</strong> Ignored &nbsp;|&nbsp; <strong>I:</strong> Level (1=Green, 2=Yellow, 3=Orange)
       </div>
-      <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleExcelImport(this.files[0])" />
+      <input id="fileInput" type="file" multiple accept=".xlsx,.xls,.csv" class="hidden" onchange="handleExcelFiles(this.files); this.value='';" />
     </div>
 
-    <div class="import-meta">
-      <span id="fileStatusText">No Excel file imported yet.</span>
-      <button id="clearBtn" class="clear-link hidden" onclick="clearSchedule()">Clear Schedule</button>
+    <div class="files-bar">
+      <div class="import-meta">
+        <span id="fileStatusText">No Excel files imported yet.</span>
+        <button id="clearBtn" class="clear-link hidden" onclick="clearAllSchedules()">Remove All Files</button>
+      </div>
+      <div id="fileChips" class="file-chips"></div>
     </div>
 
     <button id="activateBtn" class="big-activate-btn" onclick="activateToastAlerts()">
@@ -401,13 +485,30 @@
 
     <div id="inlineCards" class="inline-cards is-empty"></div>
 
+    <!-- 1. Next 5 Upcoming Events -->
     <div class="upcoming-box">
       <div class="upcoming-hdr">
         <h3>📅 Next 5 Upcoming Events</h3>
-        <span id="totalLoadedText">0 events loaded (v7)</span>
+        <span id="totalLoadedText" class="meta-count">0 events loaded (v8)</span>
       </div>
       <div id="upcomingList" class="upcoming-list">
-        <div class="empty-state">Import your Excel file above (Level in Column I) to view upcoming reminders.</div>
+        <div class="empty-state">Import one or more Excel files above to view upcoming reminders.</div>
+      </div>
+    </div>
+
+    <!-- 2. Monthly Schedule Browser (Forward & Backward 1 Month at a Time) -->
+    <div class="upcoming-box">
+      <div class="upcoming-hdr">
+        <h3>🗓️ Monthly Schedule</h3>
+        <div class="month-nav">
+          <button class="arrow-btn" onclick="shiftMonth(-1)" title="Previous Month">◀</button>
+          <span id="monthLabel" class="month-label">----</span>
+          <button class="arrow-btn" onclick="shiftMonth(1)" title="Next Month">▶</button>
+          <button class="mini-btn" onclick="jumpToCurrentMonth()" style="margin-left:4px;">Current</button>
+        </div>
+      </div>
+      <div id="monthlyList" class="upcoming-list">
+        <div class="empty-state">No events scheduled for this month.</div>
       </div>
     </div>
   </div>
@@ -421,14 +522,19 @@
     }
   });
 
-  const SAVED_ROWS_KEY = "cutoff_excel_col_i_rows_v4";
-  const SAVED_NAME_KEY = "cutoff_excel_col_i_filename_v4";
+  const SAVED_FILES_KEY = "cutoff_excel_multi_files_v5";
   const MUTE_KEY = "cutoff_app_muted_v1";
+  const MONTHS_LONG = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
 
+  let importedFiles = []; // [{ fileName, rawRows, eventCount }]
   let eventGroups = [];
   let firedSlots = {};
   let lastCardSig = "__init__";
   let lastUpcomingSig = "__init__";
+  let lastMonthlySig = "__init__";
   let soundUnlocked = false;
   let waitingFirstClick = true;
   let isMuted = false;
@@ -436,6 +542,11 @@
 
   let manualBaseMs = null;
   let manualAnchorRealMs = null;
+
+  // Monthly browser state
+  const initNow = new Date();
+  let viewYear = initNow.getFullYear();
+  let viewMonth = initNow.getMonth();
 
   try { isMuted = localStorage.getItem(MUTE_KEY) === "1"; } catch {}
 
@@ -536,6 +647,7 @@
     firedSlots = {};
     lastCardSig = "__force__";
     lastUpcomingSig = "__force__";
+    lastMonthlySig = "__force__";
     document.getElementById("testClockBadge").classList.remove("hidden");
     evaluateAndRender();
   }
@@ -552,6 +664,7 @@
       firedSlots = {};
       lastCardSig = "__force__";
       lastUpcomingSig = "__force__";
+      lastMonthlySig = "__force__";
       document.getElementById("testClockBadge").classList.add("hidden");
       evaluateAndRender();
     }
@@ -562,6 +675,29 @@
     firedSlots = {};
     lastCardSig = "__force__";
     lastUpcomingSig = "__force__";
+    lastMonthlySig = "__force__";
+    evaluateAndRender();
+  }
+
+  function shiftMonth(delta) {
+    viewMonth += delta;
+    if (viewMonth > 11) {
+      viewYear += Math.floor(viewMonth / 12);
+      viewMonth = viewMonth % 12;
+    } else if (viewMonth < 0) {
+      const yearsBack = Math.ceil(Math.abs(viewMonth) / 12);
+      viewYear -= yearsBack;
+      viewMonth = (viewMonth + yearsBack * 12) % 12;
+    }
+    lastMonthlySig = "__force__";
+    evaluateAndRender();
+  }
+
+  function jumpToCurrentMonth() {
+    const n = window.getNow();
+    viewYear = n.getFullYear();
+    viewMonth = n.getMonth();
+    lastMonthlySig = "__force__";
     evaluateAndRender();
   }
 
@@ -678,6 +814,7 @@
     try { localStorage.setItem("excel_ack_v3_" + todayKey(), JSON.stringify(map)); } catch {}
     lastCardSig = "__force__";
     lastUpcomingSig = "__force__";
+    lastMonthlySig = "__force__";
     evaluateAndRender();
   }
 
@@ -762,7 +899,7 @@
     return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
   }
 
-  function loadExcelRows(rawRows, fileName, save = true) {
+  function buildGroupsForSingleFile(rawRows, fileName, fileIdx) {
     const parsedRows = [];
     rawRows.forEach((cols) => {
       if (!cols || cols.length < 2) return;
@@ -796,7 +933,7 @@
       }
     });
 
-    eventGroups = groups.map((g, gIdx) => {
+    return groups.map((g, gIdx) => {
       const lastRow = g.rows[g.rows.length - 1];
       const minDate = new Date(Math.min(...g.rows.map(r => r.startInfo.dateOnly.getTime())));
       const deadlineDate = new Date(lastRow.endInfo.dateOnly.getTime());
@@ -808,9 +945,10 @@
       const spansMultipleDays = totalBizDays > 1;
       const isDateOnlyGroup = g.rows.every(r => !r.hasTime);
 
-      const id = `grp_${gIdx}_${g.subject}_${fmtDateOnly(minDate)}_${fmtDateOnly(deadlineDate)}`;
+      const id = `f${fileIdx}_${fileName}_g${gIdx}_${g.subject}_${fmtDateOnly(minDate)}_${fmtDateOnly(deadlineDate)}`;
       return {
         id,
+        fileName,
         subject: g.subject,
         rows: g.rows,
         totalBizDays,
@@ -822,38 +960,71 @@
         isDateOnlyGroup
       };
     });
+  }
+
+  function rebuildAllCombinedEvents(save = true) {
+    const combined = [];
+    importedFiles.forEach((f, fIdx) => {
+      const fileGroups = buildGroupsForSingleFile(f.rawRows, f.fileName, fIdx);
+      f.eventCount = fileGroups.length;
+      combined.push(...fileGroups);
+    });
+
+    eventGroups = combined;
 
     if (save) {
       try {
-        localStorage.setItem(SAVED_ROWS_KEY, JSON.stringify(rawRows));
-        localStorage.setItem(SAVED_NAME_KEY, fileName);
+        localStorage.setItem(SAVED_FILES_KEY, JSON.stringify(
+          importedFiles.map(f => ({ fileName: f.fileName, rawRows: f.rawRows }))
+        ));
       } catch {}
     }
 
-    document.getElementById("fileStatusText").textContent = `✅ Loaded: ${fileName}`;
-    document.getElementById("clearBtn").classList.remove("hidden");
-    document.getElementById("totalLoadedText").textContent = `${eventGroups.length} event(s) loaded (v7)`;
+    renderFileChips();
+    document.getElementById("totalLoadedText").textContent = `${eventGroups.length} event(s) loaded (v8)`;
 
     firedSlots = {};
     lastCardSig = "__force__";
     lastUpcomingSig = "__force__";
+    lastMonthlySig = "__force__";
     evaluateAndRender();
   }
 
-  function clearSchedule() {
-    try {
-      localStorage.removeItem(SAVED_ROWS_KEY);
-      localStorage.removeItem(SAVED_NAME_KEY);
-    } catch {}
-    eventGroups = [];
-    firedSlots = {};
+  function renderFileChips() {
+    const statusEl = document.getElementById("fileStatusText");
+    const clearBtn = document.getElementById("clearBtn");
+    const chipsEl = document.getElementById("fileChips");
+
+    if (importedFiles.length === 0) {
+      statusEl.textContent = "No Excel files imported yet.";
+      clearBtn.classList.add("hidden");
+      chipsEl.innerHTML = "";
+      return;
+    }
+
+    statusEl.textContent = `✅ ${importedFiles.length} file(s) active (combined):`;
+    clearBtn.classList.remove("hidden");
+
+    chipsEl.innerHTML = importedFiles.map((f, idx) => `
+      <span class="file-chip">
+        <span>📄 ${escapeHtml(f.fileName)}</span>
+        <small>(${f.eventCount} event${f.eventCount === 1 ? "" : "s"})</small>
+        <button class="file-remove-btn" data-remove-file="${idx}" title="Remove this file">✕</button>
+      </span>
+    `).join("");
+  }
+
+  function removeOneFile(idx) {
+    if (idx < 0 || idx >= importedFiles.length) return;
+    importedFiles.splice(idx, 1);
+    rebuildAllCombinedEvents(true);
+  }
+
+  function clearAllSchedules() {
+    try { localStorage.removeItem(SAVED_FILES_KEY); } catch {}
+    importedFiles = [];
     document.getElementById("fileInput").value = "";
-    document.getElementById("fileStatusText").textContent = "No Excel file imported yet.";
-    document.getElementById("clearBtn").classList.add("hidden");
-    document.getElementById("totalLoadedText").textContent = "0 events loaded (v7)";
-    lastCardSig = "__force__";
-    lastUpcomingSig = "__force__";
-    evaluateAndRender();
+    rebuildAllCombinedEvents(false);
   }
 
   function parseCSV(text) {
@@ -871,32 +1042,62 @@
     });
   }
 
-  async function handleExcelImport(file) {
-    if (!file) return;
-    const ext = file.name.split(".").pop().toLowerCase();
+  function readSingleExcelFile(file) {
+    return new Promise((resolve, reject) => {
+      const ext = file.name.split(".").pop().toLowerCase();
+      if (ext === "csv") {
+        const reader = new FileReader();
+        reader.onload = e => resolve({ fileName: file.name, rawRows: parseCSV(e.target.result) });
+        reader.onerror = () => reject(new Error("Could not read " + file.name));
+        reader.readAsText(file);
+      } else if (ext === "xlsx" || ext === "xls") {
+        const reader = new FileReader();
+        reader.onload = e => {
+          const wb = XLSX.read(e.target.result, { type: "array" });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" });
+          resolve({ fileName: file.name, rawRows: rows });
+        };
+        reader.onerror = () => reject(new Error("Could not read " + file.name));
+        reader.readAsArrayBuffer(file);
+      } else {
+        reject(new Error(`"${file.name}" is not an .xlsx, .xls, or .csv file.`));
+      }
+    });
+  }
 
-    if (ext === "csv") {
-      const reader = new FileReader();
-      reader.onload = e => loadExcelRows(parseCSV(e.target.result), file.name, true);
-      reader.readAsText(file);
-    } else if (ext === "xlsx" || ext === "xls") {
+  async function handleExcelFiles(fileList) {
+    if (!fileList || fileList.length === 0) return;
+    const files = Array.from(fileList);
+
+    const needsXlsx = files.some(f => {
+      const ext = f.name.split(".").pop().toLowerCase();
+      return ext === "xlsx" || ext === "xls";
+    });
+    if (needsXlsx) {
       try {
         await ensureXlsxLoaded();
       } catch {
         alert("Your network blocked the external .xlsx reader. In Excel, Save As CSV UTF-8 (.csv) and import the .csv file instead.");
         return;
       }
-      const reader = new FileReader();
-      reader.onload = e => {
-        const wb = XLSX.read(e.target.result, { type: "array" });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" });
-        loadExcelRows(rows, file.name, true);
-      };
-      reader.readAsArrayBuffer(file);
-    } else {
-      alert("Please import an Excel (.xlsx, .xls, or .csv) file.");
     }
+
+    for (const file of files) {
+      try {
+        const parsed = await readSingleExcelFile(file);
+        const existingIdx = importedFiles.findIndex(f => f.fileName.toLowerCase() === parsed.fileName.toLowerCase());
+        if (existingIdx >= 0) {
+          importedFiles[existingIdx] = { ...parsed, eventCount: 0 };
+        } else {
+          importedFiles.push({ ...parsed, eventCount: 0 });
+        }
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    rebuildAllCombinedEvents(true);
   }
 
   const dz = document.getElementById("dropzone");
@@ -905,7 +1106,14 @@
   dz.addEventListener("drop", e => {
     e.preventDefault();
     dz.classList.remove("dragover");
-    if (e.dataTransfer.files.length) handleExcelImport(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length) {
+      handleExcelFiles(e.dataTransfer.files);
+    }
+  });
+
+  document.getElementById("fileChips").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-remove-file]");
+    if (btn) removeOneFile(parseInt(btn.getAttribute("data-remove-file"), 10));
   });
 
   function playMildChime(level) {
@@ -1041,6 +1249,7 @@
 
         activeCards.push({
           slotKey: trig.slotKey,
+          fileName: g.fileName,
           subject: g.subject,
           level: g.level,
           slotLabel: trig.slotLabel,
@@ -1057,6 +1266,7 @@
 
       renderActiveCards(activeCards);
       renderNextFiveUpcoming(now, todayDate, todayStr, ackMap);
+      renderMonthlySchedule(now, todayDate, todayStr, ackMap);
     } catch (err) {
       const b = document.getElementById("errBanner");
       if (b) { b.textContent = "Render error: " + err.message; b.classList.remove("hidden"); }
@@ -1092,7 +1302,7 @@
           </div>
           <div class="rc-body">
             <div class="rc-subj">${escapeHtml(c.subject)}</div>
-            <div class="rc-meta">Event Period: <strong>${escapeHtml(c.rangeText)}</strong></div>
+            <div class="rc-meta">Event Period: <strong>${escapeHtml(c.rangeText)}</strong> · Source: ${escapeHtml(c.fileName)}</div>
             ${bizHtml}
             <button class="btn-ack" data-ack-id="${safeKey}">✅ Acknowledge Today</button>
           </div>
@@ -1124,6 +1334,56 @@
     return earliest;
   }
 
+  function buildEventRowHTML(g, now, todayDate, todayStr, ackMap, allowEndedLabel = false) {
+    const lvlNames = { 1: "Level 1 · Green", 2: "Level 2 · Yellow", 3: "Level 3 · Orange" };
+    const trig = getActiveTriggerForGroup(g, now, todayDate, todayStr);
+    const isAck = trig && !!ackMap[trig.slotKey];
+    const isAct = trig && !isAck;
+    const isEnded = allowEndedLabel && g.deadlineEndMs < now.getTime();
+
+    const stText = isAck
+      ? `<span class="st-tag acked">✅ Acked (${ackMap[trig.slotKey]})</span>`
+      : isAct
+        ? `<span class="st-tag active">🔔 Active Now</span>`
+        : isEnded
+          ? `<span class="st-tag ended">Ended</span>`
+          : `<span class="st-tag">Upcoming</span>`;
+
+    let dateSpan = "";
+    if (g.spansMultipleDays) {
+      const spanText = `Spans ${g.totalBizDays} business days`;
+      if (trig) {
+        const left = (g.rows.length - 1) - trig.activeRowIdx;
+        dateSpan = `${fmtDateOnly(g.minDate)} → ${fmtDateOnly(g.deadlineDate)} (${spanText} · ${left} left to deadline)`;
+      } else {
+        dateSpan = `${fmtDateOnly(g.minDate)} → ${fmtDateOnly(g.deadlineDate)} (${spanText})`;
+      }
+    } else {
+      dateSpan = g.isDateOnlyGroup
+        ? fmtDateOnly(g.minDate)
+        : `${fmtDateTime(g.rows[0].startInfo.ms)} → ${fmtDateTime(g.rows[0].endInfo.ms)}`;
+    }
+
+    const scheduleNote = g.isDateOnlyGroup
+      ? `<div class="up-schedule">Reminded twice daily during the event: 09:00 and 14:15</div>`
+      : `<div class="up-schedule">Single scheduled reminder at ${fmtDateTime(g.rows[0].startInfo.ms)}</div>`;
+
+    const srcChip = importedFiles.length > 1 ? `<span class="src-tag">${escapeHtml(g.fileName)}</span>` : "";
+
+    return `
+      <div class="up-item">
+        <div class="up-left">
+          <div class="up-subj"><span>${escapeHtml(g.subject)}</span>${srcChip}</div>
+          <div class="up-details">${escapeHtml(dateSpan)}</div>
+          ${scheduleNote}
+        </div>
+        <div class="up-right">
+          <span class="lvl-badge lvl-${g.level}">${lvlNames[g.level]}</span>
+          ${stText}
+        </div>
+      </div>`;
+  }
+
   function renderNextFiveUpcoming(now, todayDate, todayStr, ackMap) {
     const nowMs = now.getTime();
 
@@ -1138,65 +1398,62 @@
       const trig = getActiveTriggerForGroup(g, now, todayDate, todayStr);
       const st = trig ? (ackMap[trig.slotKey] ? "ack" : "act") : "up";
       return `${g.id}:${st}`;
-    }).join("|") + "::" + eventGroups.length + "::" + todayStr;
+    }).join("|") + "::" + eventGroups.length + "::" + importedFiles.length + "::" + todayStr;
 
     if (sig === lastUpcomingSig) return;
     lastUpcomingSig = sig;
 
     const listEl = document.getElementById("upcomingList");
     if (eventGroups.length === 0) {
-      listEl.innerHTML = `<div class="empty-state">Import your Excel file above (Level in Column I) to view upcoming reminders.</div>`;
+      listEl.innerHTML = `<div class="empty-state">Import one or more Excel files above to view upcoming reminders.</div>`;
       return;
     }
     if (upcoming.length === 0) {
-      listEl.innerHTML = `<div class="empty-state">All events from your Excel file have already ended.</div>`;
+      listEl.innerHTML = `<div class="empty-state">All events from your Excel files have already ended.</div>`;
       return;
     }
 
-    const lvlNames = { 1: "Level 1 · Green", 2: "Level 2 · Yellow", 3: "Level 3 · Orange" };
-    listEl.innerHTML = upcoming.map(g => {
+    listEl.innerHTML = upcoming.map(g => buildEventRowHTML(g, now, todayDate, todayStr, ackMap, false)).join("");
+  }
+
+  function renderMonthlySchedule(now, todayDate, todayStr, ackMap) {
+    const labelText = `${MONTHS_LONG[viewMonth]} ${viewYear}`;
+    document.getElementById("monthLabel").textContent = labelText;
+
+    const monthStartMs = new Date(viewYear, viewMonth, 1, 0, 0, 0, 0).getTime();
+    const monthEndMs = new Date(viewYear, viewMonth + 1, 0, 23, 59, 59, 999).getTime();
+
+    const monthEvents = eventGroups
+      .filter(g => {
+        const gStartMs = g.isDateOnlyGroup ? g.minDate.getTime() : g.rows[0].startInfo.ms;
+        return gStartMs <= monthEndMs && g.deadlineEndMs >= monthStartMs;
+      })
+      .sort((a, b) => {
+        const aMs = a.isDateOnlyGroup ? a.minDate.getTime() : a.rows[0].startInfo.ms;
+        const bMs = b.isDateOnlyGroup ? b.minDate.getTime() : b.rows[0].startInfo.ms;
+        return aMs - bMs;
+      });
+
+    const sig = `${viewYear}-${viewMonth}::` + monthEvents.map(g => {
       const trig = getActiveTriggerForGroup(g, now, todayDate, todayStr);
-      const isAck = trig && !!ackMap[trig.slotKey];
-      const isAct = trig && !isAck;
+      const st = trig ? (ackMap[trig.slotKey] ? "ack" : "act") : (g.deadlineEndMs < now.getTime() ? "end" : "up");
+      return `${g.id}:${st}`;
+    }).join("|") + "::" + eventGroups.length + "::" + importedFiles.length + "::" + todayStr;
 
-      const stText = isAck
-        ? `<span class="st-tag acked">✅ Acked (${ackMap[trig.slotKey]})</span>`
-        : isAct
-          ? `<span class="st-tag active">🔔 Active Now</span>`
-          : `<span class="st-tag">Upcoming</span>`;
+    if (sig === lastMonthlySig) return;
+    lastMonthlySig = sig;
 
-      let dateSpan = "";
-      if (g.spansMultipleDays) {
-        const spanText = `Spans ${g.totalBizDays} business days`;
-        if (trig) {
-          const left = (g.rows.length - 1) - trig.activeRowIdx;
-          dateSpan = `${fmtDateOnly(g.minDate)} → ${fmtDateOnly(g.deadlineDate)} (${spanText} · ${left} left to deadline)`;
-        } else {
-          dateSpan = `${fmtDateOnly(g.minDate)} → ${fmtDateOnly(g.deadlineDate)} (${spanText})`;
-        }
-      } else {
-        dateSpan = g.isDateOnlyGroup
-          ? fmtDateOnly(g.minDate)
-          : `${fmtDateTime(g.rows[0].startInfo.ms)} → ${fmtDateTime(g.rows[0].endInfo.ms)}`;
-      }
+    const monthlyEl = document.getElementById("monthlyList");
+    if (eventGroups.length === 0) {
+      monthlyEl.innerHTML = `<div class="empty-state">Import Excel files above to browse monthly events.</div>`;
+      return;
+    }
+    if (monthEvents.length === 0) {
+      monthlyEl.innerHTML = `<div class="empty-state">No events scheduled in ${labelText}.</div>`;
+      return;
+    }
 
-      const scheduleNote = g.isDateOnlyGroup
-        ? `<div class="up-schedule">Reminded twice daily during the event: 09:00 and 14:15</div>`
-        : `<div class="up-schedule">Single scheduled reminder at ${fmtDateTime(g.rows[0].startInfo.ms)}</div>`;
-
-      return `
-        <div class="up-item">
-          <div class="up-left">
-            <div class="up-subj">${escapeHtml(g.subject)}</div>
-            <div class="up-details">${escapeHtml(dateSpan)}</div>
-            ${scheduleNote}
-          </div>
-          <div class="up-right">
-            <span class="lvl-badge lvl-${g.level}">${lvlNames[g.level]}</span>
-            ${stText}
-          </div>
-        </div>`;
-    }).join("");
+    monthlyEl.innerHTML = monthEvents.map(g => buildEventRowHTML(g, now, todayDate, todayStr, ackMap, true)).join("");
   }
 
   document.getElementById("inlineCards").addEventListener("click", (e) => {
@@ -1206,7 +1463,7 @@
 
   document.addEventListener("click", (e) => {
     if (!waitingFirstClick) return;
-    if (e.target && (e.target.id === "fileInput" || e.target.closest("#muteBtn, .time-test-bar"))) return;
+    if (e.target && (e.target.id === "fileInput" || e.target.closest("#muteBtn, .time-test-bar, .file-remove-btn, .month-nav"))) return;
     activateToastAlerts();
   });
 
@@ -1219,12 +1476,17 @@
     evaluateAndRender();
     updateNotifUI();
     initKeepAwakeEngine();
-    const saved = localStorage.getItem(SAVED_ROWS_KEY);
-    const savedName = localStorage.getItem(SAVED_NAME_KEY) || "Saved Excel Schedule";
+
+    const saved = localStorage.getItem(SAVED_FILES_KEY);
     if (saved) {
-      const rows = JSON.parse(saved);
-      if (Array.isArray(rows) && rows.length > 0) {
-        loadExcelRows(rows, savedName, false);
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        importedFiles = parsed.map(f => ({
+          fileName: f.fileName || "Saved Excel.xlsx",
+          rawRows: Array.isArray(f.rawRows) ? f.rawRows : [],
+          eventCount: 0
+        }));
+        rebuildAllCombinedEvents(false);
       }
     }
     window.__appBooted = true;
