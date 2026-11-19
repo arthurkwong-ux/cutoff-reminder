@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Cut-Off Reminder App (v8)</title>
+<title>Cut-Off Reminder App (v9)</title>
 <style>
   :root {
     --lvl1-bg: #ECFDF5; --lvl1-border: #10B981; --lvl1-hdr: #059669; --lvl1-hdr-text: #FFFFFF; --lvl1-text: #065F46;
@@ -28,7 +28,7 @@
     border: 1px solid #E2E8F0;
     border-radius: 14px;
     padding: 24px;
-    width: 700px;
+    width: 920px;
     max-width: 100%;
     box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
   }
@@ -154,10 +154,7 @@
   .drop-title { font-size: 14px; font-weight: 700; color: #1E40AF; margin-bottom: 4px; }
   .drop-sub { font-size: 11.5px; color: #475569; line-height: 1.5; }
 
-  /* Loaded Files Chip List */
-  .files-bar {
-    margin-bottom: 14px;
-  }
+  .files-bar { margin-bottom: 14px; }
   .import-meta {
     display: flex;
     justify-content: space-between;
@@ -177,11 +174,7 @@
     cursor: pointer;
     text-decoration: underline;
   }
-  .file-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 7px;
-  }
+  .file-chips { display: flex; flex-wrap: wrap; gap: 7px; }
   .file-chip {
     display: inline-flex;
     align-items: center;
@@ -194,10 +187,7 @@
     color: #0F172A;
     font-weight: 600;
   }
-  .file-chip small {
-    color: #64748B;
-    font-weight: 500;
-  }
+  .file-chip small { color: #64748B; font-weight: 500; }
   .file-remove-btn {
     background: #E2E8F0;
     color: #334155;
@@ -253,19 +243,14 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     gap: 8px;
     flex-wrap: wrap;
   }
   .upcoming-hdr h3 { font-size: 14px; font-weight: 700; color: #1E293B; }
   .upcoming-hdr span.meta-count { font-size: 11.5px; color: #64748B; }
 
-  /* Month Browser Controls */
-  .month-nav {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
+  .month-nav { display: flex; align-items: center; gap: 6px; }
   .arrow-btn {
     width: 28px;
     height: 28px;
@@ -289,6 +274,17 @@
     color: #0F172A;
   }
 
+  /* 2-Column Split for Monthly Schedule (Events Left, Calendar Right) */
+  .monthly-split {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 780px) {
+    .monthly-split { grid-template-columns: 1fr; }
+  }
+
   .upcoming-list { display: flex; flex-direction: column; gap: 8px; }
   .up-item {
     display: flex;
@@ -297,20 +293,19 @@
     gap: 12px;
     padding: 10px 12px;
     border-radius: 8px;
-    border: 1px solid #E2E8F0;
+    border: 1.5px solid #E2E8F0;
     background: #F8FAFC;
     font-size: 12.5px;
+    transition: all 0.15s ease;
+  }
+  .up-item.hovered-highlight {
+    border-color: #2563EB;
+    background: #EFF6FF;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.22);
+    transform: translateX(3px);
   }
   .up-left { min-width: 0; flex: 1; }
-  .up-subj { font-weight: 700; color: #0F172A; margin-bottom: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-  .src-tag {
-    font-size: 10px;
-    font-weight: 600;
-    padding: 1px 6px;
-    border-radius: 4px;
-    background: #E2E8F0;
-    color: #334155;
-  }
+  .up-subj { font-weight: 700; color: #0F172A; margin-bottom: 2px; }
   .up-details { font-size: 11.5px; color: #475569; line-height: 1.4; }
   .up-schedule { font-size: 11.5px; color: #1E40AF; font-weight: 600; margin-top: 2px; }
   .up-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
@@ -333,6 +328,104 @@
     font-size: 12.5px;
     color: #64748B;
   }
+
+  /* Monthly Calendar Widget (Right Side) */
+  .cal-card {
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    padding: 12px;
+    background: #FFFFFF;
+  }
+  .cal-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-bottom: 6px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748B;
+  }
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+  .cal-cell {
+    aspect-ratio: 1 / 0.92;
+    border-radius: 7px;
+    border: 1px solid #F1F5F9;
+    background: #F8FAFC;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+    position: relative;
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+  .cal-cell.blank {
+    background: transparent;
+    border-color: transparent;
+  }
+  .cal-cell.has-event { cursor: pointer; }
+  .cal-cell.has-event:hover,
+  .cal-cell.cal-hovered {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 2px #2563EB;
+    z-index: 2;
+  }
+  .cal-cell.is-today {
+    outline: 2px solid #0F172A;
+    outline-offset: -2px;
+  }
+
+  /* Day Background Colors Matching Importance Level */
+  .cal-lvl-1 {
+    background: #D1FAE5;
+    border-color: #10B981;
+    color: #065F46;
+    font-weight: 700;
+  }
+  .cal-lvl-2 {
+    background: #FEF08A;
+    border-color: #EAB308;
+    color: #854D0E;
+    font-weight: 700;
+  }
+  .cal-lvl-3 {
+    background: #FED7AA;
+    border-color: #F97316;
+    color: #9A3412;
+    font-weight: 700;
+  }
+  .cal-dots {
+    display: flex;
+    gap: 2px;
+    margin-top: 2px;
+  }
+  .cal-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+  }
+  .dot-1 { background: #059669; }
+  .dot-2 { background: #CA8A04; }
+  .dot-3 { background: #EA580C; }
+
+  .cal-legend {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 10px;
+    font-size: 11px;
+    color: #475569;
+    flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .legend-swatch { width: 11px; height: 11px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.15); }
 
   .reminder-card {
     border-radius: 10px;
@@ -489,14 +582,14 @@
     <div class="upcoming-box">
       <div class="upcoming-hdr">
         <h3>📅 Next 5 Upcoming Events</h3>
-        <span id="totalLoadedText" class="meta-count">0 events loaded (v8)</span>
+        <span id="totalLoadedText" class="meta-count">0 events loaded (v9)</span>
       </div>
       <div id="upcomingList" class="upcoming-list">
         <div class="empty-state">Import one or more Excel files above to view upcoming reminders.</div>
       </div>
     </div>
 
-    <!-- 2. Monthly Schedule Browser (Forward & Backward 1 Month at a Time) -->
+    <!-- 2. Monthly Schedule (Left: Event List, Right: Interactive Calendar) -->
     <div class="upcoming-box">
       <div class="upcoming-hdr">
         <h3>🗓️ Monthly Schedule</h3>
@@ -507,8 +600,23 @@
           <button class="mini-btn" onclick="jumpToCurrentMonth()" style="margin-left:4px;">Current</button>
         </div>
       </div>
-      <div id="monthlyList" class="upcoming-list">
-        <div class="empty-state">No events scheduled for this month.</div>
+
+      <div class="monthly-split">
+        <div id="monthlyList" class="upcoming-list">
+          <div class="empty-state">No events scheduled for this month.</div>
+        </div>
+
+        <div class="cal-card">
+          <div class="cal-weekdays">
+            <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+          </div>
+          <div id="monthlyCalendarGrid" class="cal-grid"></div>
+          <div class="cal-legend">
+            <span class="legend-item"><span class="legend-swatch" style="background:#D1FAE5;border-color:#10B981;"></span> Level 1</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:#FEF08A;border-color:#EAB308;"></span> Level 2</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:#FED7AA;border-color:#F97316;"></span> Level 3</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -529,7 +637,7 @@
     "July", "August", "September", "October", "November", "December"
   ];
 
-  let importedFiles = []; // [{ fileName, rawRows, eventCount }]
+  let importedFiles = [];
   let eventGroups = [];
   let firedSlots = {};
   let lastCardSig = "__init__";
@@ -543,7 +651,6 @@
   let manualBaseMs = null;
   let manualAnchorRealMs = null;
 
-  // Monthly browser state
   const initNow = new Date();
   let viewYear = initNow.getFullYear();
   let viewMonth = initNow.getMonth();
@@ -910,7 +1017,6 @@
       if (!startInfo) return;
 
       const endInfo = parseCellDateOrDateTime(cols[2]) || startInfo;
-      // Col D..H (cols[3]..cols[7]) ignored; Col I (cols[8]) = Importance Level
       const level = Math.min(3, Math.max(1, parseInt(cols[8], 10) || 1));
 
       parsedRows.push({
@@ -945,7 +1051,18 @@
       const spansMultipleDays = totalBizDays > 1;
       const isDateOnlyGroup = g.rows.every(r => !r.hasTime);
 
-      const id = `f${fileIdx}_${fileName}_g${gIdx}_${g.subject}_${fmtDateOnly(minDate)}_${fmtDateOnly(deadlineDate)}`;
+      // Build exact set of calendar date keys ("YYYY-MM-DD") belonging to this event
+      const dateKeys = new Set();
+      g.rows.forEach(r => {
+        const cur = new Date(r.startInfo.dateOnly);
+        const endD = r.endInfo.dateOnly >= r.startInfo.dateOnly ? r.endInfo.dateOnly : r.startInfo.dateOnly;
+        while (cur <= endD) {
+          dateKeys.add(dateKeyFromDate(cur));
+          cur.setDate(cur.getDate() + 1);
+        }
+      });
+
+      const id = `f${fileIdx}_g${gIdx}_${g.subject.replace(/[^a-zA-Z0-9]/g, "")}_${fmtDateOnly(minDate)}`;
       return {
         id,
         fileName,
@@ -957,7 +1074,8 @@
         deadlineDate,
         deadlineEndMs,
         spansMultipleDays,
-        isDateOnlyGroup
+        isDateOnlyGroup,
+        dateKeys
       };
     });
   }
@@ -981,7 +1099,7 @@
     }
 
     renderFileChips();
-    document.getElementById("totalLoadedText").textContent = `${eventGroups.length} event(s) loaded (v8)`;
+    document.getElementById("totalLoadedText").textContent = `${eventGroups.length} event(s) loaded (v9)`;
 
     firedSlots = {};
     lastCardSig = "__force__";
@@ -1249,7 +1367,6 @@
 
         activeCards.push({
           slotKey: trig.slotKey,
-          fileName: g.fileName,
           subject: g.subject,
           level: g.level,
           slotLabel: trig.slotLabel,
@@ -1302,7 +1419,7 @@
           </div>
           <div class="rc-body">
             <div class="rc-subj">${escapeHtml(c.subject)}</div>
-            <div class="rc-meta">Event Period: <strong>${escapeHtml(c.rangeText)}</strong> · Source: ${escapeHtml(c.fileName)}</div>
+            <div class="rc-meta">Event Period: <strong>${escapeHtml(c.rangeText)}</strong></div>
             ${bizHtml}
             <button class="btn-ack" data-ack-id="${safeKey}">✅ Acknowledge Today</button>
           </div>
@@ -1368,12 +1485,11 @@
       ? `<div class="up-schedule">Reminded twice daily during the event: 09:00 and 14:15</div>`
       : `<div class="up-schedule">Single scheduled reminder at ${fmtDateTime(g.rows[0].startInfo.ms)}</div>`;
 
-    const srcChip = importedFiles.length > 1 ? `<span class="src-tag">${escapeHtml(g.fileName)}</span>` : "";
-
+    const safeId = escapeHtml(g.id).replace(/"/g, "&quot;");
     return `
-      <div class="up-item">
+      <div class="up-item" data-event-id="${safeId}">
         <div class="up-left">
-          <div class="up-subj"><span>${escapeHtml(g.subject)}</span>${srcChip}</div>
+          <div class="up-subj">${escapeHtml(g.subject)}</div>
           <div class="up-details">${escapeHtml(dateSpan)}</div>
           ${scheduleNote}
         </div>
@@ -1398,7 +1514,7 @@
       const trig = getActiveTriggerForGroup(g, now, todayDate, todayStr);
       const st = trig ? (ackMap[trig.slotKey] ? "ack" : "act") : "up";
       return `${g.id}:${st}`;
-    }).join("|") + "::" + eventGroups.length + "::" + importedFiles.length + "::" + todayStr;
+    }).join("|") + "::" + eventGroups.length + "::" + todayStr;
 
     if (sig === lastUpcomingSig) return;
     lastUpcomingSig = sig;
@@ -1414,6 +1530,42 @@
     }
 
     listEl.innerHTML = upcoming.map(g => buildEventRowHTML(g, now, todayDate, todayStr, ackMap, false)).join("");
+  }
+
+  function renderMonthlyCalendarGrid(monthEvents, todayStr) {
+    const grid = document.getElementById("monthlyCalendarGrid");
+    const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay(); // 0=Sun
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+    const cells = [];
+    for (let b = 0; b < firstDayOfWeek; b++) {
+      cells.push(`<div class="cal-cell blank"></div>`);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dObj = new Date(viewYear, viewMonth, day);
+      const dStr = dateKeyFromDate(dObj);
+      const isToday = (dStr === todayStr);
+
+      const eventsOnDay = monthEvents.filter(g => g.dateKeys.has(dStr));
+      if (eventsOnDay.length === 0) {
+        cells.push(`<div class="cal-cell ${isToday ? "is-today" : ""}">${day}</div>`);
+      } else {
+        const maxLevel = Math.max(...eventsOnDay.map(e => e.level));
+        const idsAttr = eventsOnDay.map(e => escapeHtml(e.id).replace(/"/g, "&quot;")).join(",");
+        const tooltip = eventsOnDay.map(e => escapeHtml(e.subject).replace(/"/g, "&quot;")).join(" | ");
+        const dotsHtml = eventsOnDay.length > 1
+          ? `<div class="cal-dots">${eventsOnDay.slice(0, 4).map(e => `<span class="cal-dot dot-${e.level}"></span>`).join("")}</div>`
+          : "";
+        cells.push(`
+          <div class="cal-cell has-event cal-lvl-${maxLevel} ${isToday ? "is-today" : ""}" data-cal-ids="${idsAttr}" title="${tooltip}">
+            <span>${day}</span>
+            ${dotsHtml}
+          </div>`);
+      }
+    }
+
+    grid.innerHTML = cells.join("");
   }
 
   function renderMonthlySchedule(now, todayDate, todayStr, ackMap) {
@@ -1438,7 +1590,7 @@
       const trig = getActiveTriggerForGroup(g, now, todayDate, todayStr);
       const st = trig ? (ackMap[trig.slotKey] ? "ack" : "act") : (g.deadlineEndMs < now.getTime() ? "end" : "up");
       return `${g.id}:${st}`;
-    }).join("|") + "::" + eventGroups.length + "::" + importedFiles.length + "::" + todayStr;
+    }).join("|") + "::" + eventGroups.length + "::" + todayStr;
 
     if (sig === lastMonthlySig) return;
     lastMonthlySig = sig;
@@ -1446,14 +1598,50 @@
     const monthlyEl = document.getElementById("monthlyList");
     if (eventGroups.length === 0) {
       monthlyEl.innerHTML = `<div class="empty-state">Import Excel files above to browse monthly events.</div>`;
-      return;
-    }
-    if (monthEvents.length === 0) {
+    } else if (monthEvents.length === 0) {
       monthlyEl.innerHTML = `<div class="empty-state">No events scheduled in ${labelText}.</div>`;
-      return;
+    } else {
+      monthlyEl.innerHTML = monthEvents.map(g => buildEventRowHTML(g, now, todayDate, todayStr, ackMap, true)).join("");
     }
 
-    monthlyEl.innerHTML = monthEvents.map(g => buildEventRowHTML(g, now, todayDate, todayStr, ackMap, true)).join("");
+    renderMonthlyCalendarGrid(monthEvents, todayStr);
+  }
+
+  // Hover Calendar Date -> Highlight Listed Event(s) on the Left
+  const calGridEl = document.getElementById("monthlyCalendarGrid");
+  calGridEl.addEventListener("mouseover", (e) => {
+    const cell = e.target.closest("[data-cal-ids]");
+    clearHoverHighlights();
+    if (!cell) return;
+    const ids = cell.getAttribute("data-cal-ids").split(",");
+    ids.forEach((id, idx) => {
+      const row = document.querySelector(`#monthlyList .up-item[data-event-id="${CSS.escape(id)}"]`);
+      if (row) {
+        row.classList.add("hovered-highlight");
+        if (idx === 0) row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+    });
+  });
+  calGridEl.addEventListener("mouseleave", clearHoverHighlights);
+
+  // Bonus: Hover Left Event -> Highlight its Date Boxes on the Right Calendar
+  const monthlyListEl = document.getElementById("monthlyList");
+  monthlyListEl.addEventListener("mouseover", (e) => {
+    const item = e.target.closest(".up-item[data-event-id]");
+    clearHoverHighlights();
+    if (!item) return;
+    const targetId = item.getAttribute("data-event-id");
+    item.classList.add("hovered-highlight");
+    document.querySelectorAll("#monthlyCalendarGrid .cal-cell[data-cal-ids]").forEach(cell => {
+      const ids = cell.getAttribute("data-cal-ids").split(",");
+      if (ids.includes(targetId)) cell.classList.add("cal-hovered");
+    });
+  });
+  monthlyListEl.addEventListener("mouseleave", clearHoverHighlights);
+
+  function clearHoverHighlights() {
+    document.querySelectorAll("#monthlyList .up-item.hovered-highlight").forEach(el => el.classList.remove("hovered-highlight"));
+    document.querySelectorAll("#monthlyCalendarGrid .cal-cell.cal-hovered").forEach(el => el.classList.remove("cal-hovered"));
   }
 
   document.getElementById("inlineCards").addEventListener("click", (e) => {
